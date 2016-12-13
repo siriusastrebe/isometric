@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Title of the document</title>
+
+  <script src="d3.v4.js"></script>
+  <script src="node_modules/socket.io-client/dist/socket.io.js"></script>
+
+  <style>
+    body {
+      background-image: url('stars.jpg')
+    }
+  </style>
+</head>
+<body>
+  <script>
+    // ----------------------------------------------------------------
+    // Socket
+    // ----------------------------------------------------------------
+    var socket = io()
+
+    socket.on('welcome', function(data) {
+      console.log('hi')
+
+      // Respond with a message including this clients' id sent from the server
+      socket.emit('i am client', {data: 'foo!', id: data.id})
+    })
+    socket.on('time', function(data) {
+      console.log('time')
+    });
+    socket.on('error', console.error.bind(console));
+    socket.on('message', console.log.bind(console));
+
+
+    // ----------------------------------------------------------------
+    // Tiler
+    // ----------------------------------------------------------------
+    var tiles = {}
+
+    var tileDescriptions = {
+      cobblestone: {
+        url: 'cobblestone.png'
+      }, 
+      wireframe: {
+        url: 'wireframe.png'
+      },
+      negative: {
+        url: 'negative.png'
+      }
+    }
+
+    function createTile (type) {
+      var tile = world.append('img')
+        .attr('src', tileDescriptions[type].url)
+        .style('position', 'absolute')
+
+      return tile
+    }
+
+    function tileID (grid) {
+      return String(grid[0]) + '-' + String(grid[1]) + '-' + String(grid[2])
+    }
+
+    // Create world
+    var world = d3.select('body')
+      .append('div')
+      .attr('id', 'world') 
+      .style('width', '1400px')
+      .style('height', '900px')
+
+    wireframe = createTile('wireframe')
+ 
+    world.on('mousemove', function (a, b) {
+      var cursor = d3.mouse(this)
+      var grid = pixel2grid(cursor)
+      var px = grid2pixel(grid)
+      var id = tileID(grid)
+
+      wireframe
+        .style('left', px[0] + 'px')
+        .style('top', px[1] + 'px')
+        .style('z-index', 1000)
+
+      if (!tiles[id]) {
+        wireframe
+          .attr('src', tileDescriptions['wireframe'].url)
+      } else {
+        wireframe
+          .attr('src', tileDescriptions['negative'].url)
+      }
+    })
+ 
+    world.on('click', function () {
+      var cursor = d3.mouse(this)
+      var grid = pixel2grid(cursor)
+      var px = grid2pixel(grid)
+      var id = tileID(grid)
+
+      if (!tiles[id]) {
+        var tile = createTile('cobblestone')
+ 
+        tile
+          .style('left', px[0] + 'px')
+          .style('top', px[1] - 500 + 'px')
+          .style('z-index', px[2])
+          .attr('i', grid[0])
+          .attr('j', grid[1])
+ 
+        tile.transition().ease(d3.easeBounce)
+          .style('top', px[1] + 'px')
+
+        wireframe
+          .attr('src', tileDescriptions['negative'].url)
+
+        tiles[id] = tile
+      } else {
+        var tile = tiles[id] 
+        var top = tile.style('top').substr(0, -2)
+
+        wireframe
+          .attr('src', tileDescriptions['wireframe'].url)
+
+        delete tiles[id]
+
+        tile.transition().ease(d3.easeLinear)
+          .style('top', top + 600 + 'px')
+          .style('opacity', 0)
+      }
+    })
+
+ 
+   function pixel2grid (cursor) {
+     var iso = [],
+         x = cursor[0],
+         y = cursor[1],
+         height = 0
+ 
+     y += height * 32 - 25
+ 
+     iso[0] = Math.floor(x / 128 - y / 64)
+     iso[1] = Math.floor(x / 128 + y / 64)
+ 
+     return iso
+   }
+ 
+   function grid2pixel(iso) { 
+     var px = [],
+         i = iso[0],
+         j = iso[1],
+         height = 0
+  
+     // Rotate
+     px[0] = i * 64  + j * 64
+     px[1] = -i * 32 + j * 32
+     px[2] = -i + j + height; 
+ 
+     px[1] -= height * 32
+ 
+     return px 
+   }
+  </script>
+</body>
+</html>
