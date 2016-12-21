@@ -10,9 +10,33 @@
     body {
       background-image: url('stars.jpg')
     }
+
+    .button {
+      border: 5px outset #888;
+    }
+    .button:hover {
+      border: 5px solid #888;
+    }
+    .button:active, .button.selected {
+      border: 5px inset #888;
+    }
+
+    #editor img.tile {
+      width: 100px;
+      border: 5px transparent solid;
+    }
+
+    #editor img.tile:hover {
+      border: 5px solid #8F8;
+    }
+
+    #editor img.tile.active {
+      border: 5px inset #8F8;
+    }
   </style>
 </head>
 <body>
+  <div>
   <script>
     // ----------------------------------------------------------------
     // Socket
@@ -60,6 +84,8 @@
       }
     }
 
+    var availableTiles = ['cobblestone', 'wireframe', 'negative']
+
     function createTile (type) {
       var tile = world.append('img')
         .attr('src', tileDescriptions[type].url)
@@ -85,9 +111,65 @@
 
     var drawing = false
     var erasing = false
+    var elevation = 0
+    var selectedTile = 'cobblestone'
 
     wireframe = createTile('wireframe')
- 
+
+    // Create editor toolbar
+    var editor = d3.select('body')
+      .append('div')
+      .attr('id', 'editor')
+      .style('width', '220px')
+      .style('height', '400px')
+      .style('position', 'absolute')
+      .style('left:', '5px')
+      .style('top', '25px')
+      .style('background-color', 'white')
+      .style('z-index', 2000)
+
+    var lowerElevationButton = editor
+      .append('img')
+      .attr('class', 'button')
+      .attr('src', 'lower.png')
+      .on('click', function () {
+        elevation -= 1
+        console.log(elevation)
+      })
+
+    var higherElevationButton = editor
+      .append('img')
+      .attr('class', 'button')
+      .attr('src', 'higher.png')
+      .on('click', function () {
+        elevation += 1
+        console.log(elevation)
+      })
+
+    renderEditorTiles()
+
+    function renderEditorTiles () {
+      var tiles = editor.selectAll('img.tile')
+        .data(availableTiles)
+        .enter()
+        .append('img')
+        .attr('class', 'tile')
+        .attr('id', function (a) { return a })
+        .attr('src', function (a) { return tileDescriptions[a].url })
+        .on('click', selectTile)
+
+      selectTile(selectedTile)
+
+      function selectTile (tileName) {
+        tiles.attr('class', 'tile')
+
+        var tile = d3.select('#' + tileName)
+        tile.attr('class', 'tile active')
+
+        selectedTile = tileName
+      }
+    }
+
     world.on('mousedown', function (a, b) {
       var cursor = d3.mouse(this)
       var grid = pixel2grid(cursor)
@@ -128,7 +210,7 @@
       wireframe
         .style('left', px[0] + 'px')
         .style('top', px[1] + 'px')
-        .style('z-index', 1000)
+        .style('z-index', px[2] + 1)
 
       if (drawing || (!erasing && !tiles[id])) {
         wireframe
@@ -140,14 +222,14 @@
 
       if (synced) {
         if (drawing) {
-          addTile(id, 'cobblestone')
+          addTile(id, selectedTile, true)
         } else if (erasing) {
-          removeTile(id)
+          removeTile(id, true)
         }
       }
     }
 
-    function addTile (id, type) {
+    function addTile (id, type, sendSocket) {
       if (!tiles[id]) {
         var grid = id2grid(id)
         var px = grid2pixel(grid)
@@ -169,11 +251,13 @@
 
         tiles[id] = tile
 
-        socket.emit('addTile', {id: id, type: type})
+        if (sendSocket) {
+          socket.emit('addTile', {id: id, type: type})
+        }
       }
     }
 
-    function removeTile (id) {
+    function removeTile (id, sendSocket) {
       if (tiles[id]) {
         var tile = tiles[id] 
         var top = Number(tile.style('top').substr(0, tile.style('top').length - 2))
@@ -189,7 +273,9 @@
 
         delete tiles[id]
 
-        socket.emit('removeTile', id)
+        if (sendSocket) {
+          socket.emit('removeTile', id)
+        }
       }
     }
 
@@ -221,18 +307,17 @@
     */
 
 
-    function pixel2grid (cursor, i) {
+    function pixel2grid (cursor) {
       var iso = [],
           x = cursor[0],
           y = cursor[1],
-          height = 0,
-          i = i || 0
+          z = elevation
  
-      y += height * 32 - 25
+      y += z * 32 - 25
  
       iso[0] = Math.floor(x / 128 - y / 64)
       iso[1] = Math.floor(x / 128 + y / 64)
-      iso[2] = i
+      iso[2] = z
   
       return iso
    }
