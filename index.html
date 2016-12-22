@@ -14,11 +14,32 @@
     .button {
       border: 5px outset #888;
     }
-    .button:hover {
-      border: 5px solid #888;
+    .button:hover { border-style: solid; }
+    .button:active, .button.selected { border-style: inset; }
+
+    #editor {
+      width: 220px;
+      height: 400px;
+      position: fixed;
+      left: 5px;
+      top: 10px;
+      background-color: white;
+      z-index: 2000;
+      overflow: hidden;
     }
-    .button:active, .button.selected {
-      border: 5px inset #888;
+
+    #editor #collapse {
+      background-color: azure;
+      border: outset 3px gray;
+      width: 214px;
+      height: 14px;
+    }
+
+    #editor #collapse:hover { border-style: solid; }
+    #editor #collapse:active { border-style: inset; }
+
+    #editor.collapsed {
+      height: 20px;
     }
 
     #editor img.tile {
@@ -26,12 +47,18 @@
       border: 5px transparent solid;
     }
 
-    #editor img.tile:hover {
-      border: 5px solid #8F8;
+    #editor img.tile:hover { border: 5px solid #8F8; }
+    #editor img.tile.active { border: 5px inset #8F8; }
+
+    #uploadButton {
+      margin-top: 3em;
+      padding: 0.5em;
     }
 
-    #editor img.tile.active {
-      border: 5px inset #8F8;
+    #uploadButton::after {
+      content: '128x96';
+      text-align: center;
+      display: block;
     }
   </style>
 </head>
@@ -66,12 +93,12 @@
         addTile(id, data[id])
       }
     })
-
+ 
     // ----------------------------------------------------------------
     // Tiler
     // ----------------------------------------------------------------
     var tiles = {}
-
+ 
     var tileDescriptions = {
       cobblestone: {
         url: 'cobblestone.png'
@@ -81,11 +108,11 @@
       },
       negative: {
         url: 'negative.png'
-      }
+     }
     }
 
     var availableTiles = ['cobblestone', 'wireframe', 'negative']
-
+ 
     function createTile (type) {
       var tile = world.append('img')
         .attr('src', tileDescriptions[type].url)
@@ -102,7 +129,40 @@
       return id.split(',').map(function (loc) { return Number(loc) })
     }
 
+    function pixel2grid (cursor) {
+      var iso = [],
+          x = cursor[0],
+          y = cursor[1],
+          z = elevation
+ 
+      y += z * 32 - 25
+ 
+      iso[0] = Math.floor(x / 128 - y / 64)
+      iso[1] = Math.floor(x / 128 + y / 64)
+      iso[2] = z
+  
+      return iso
+    }
+ 
+    function grid2pixel(iso) {
+      var px = [],
+          i = iso[0],
+          j = iso[1],
+          h = iso[2]
+
+      // Rotate
+      px[0] = i * 64  + j * 64
+      px[1] = -i * 32 + j * 32
+      px[2] = -i + j + h 
+ 
+      px[1] -= h * 32
+
+      return px 
+    }
+
+    // ----------------------------------------------------------------
     // Create world
+    // ----------------------------------------------------------------
     var world = d3.select('body')
       .append('div')
       .attr('id', 'world') 
@@ -116,17 +176,23 @@
 
     wireframe = createTile('wireframe')
 
+    // ----------------------------------------------------------------
     // Create editor toolbar
+    // ----------------------------------------------------------------
     var editor = d3.select('body')
       .append('div')
       .attr('id', 'editor')
-      .style('width', '220px')
-      .style('height', '400px')
-      .style('position', 'absolute')
-      .style('left:', '5px')
-      .style('top', '25px')
-      .style('background-color', 'white')
-      .style('z-index', 2000)
+
+    var collapseBar = editor
+      .append('div')
+      .attr('id', 'collapse')
+      .on('click', function () {
+        if (editor.attr('class') !== 'collapsed') {
+          editor.attr('class', 'collapsed')
+        } else {
+          editor.attr('class', '')
+        }
+      })
 
     var lowerElevationButton = editor
       .append('img')
@@ -170,6 +236,14 @@
       }
     }
 
+    var uploadTileButton = editor
+      .append('input')
+      .attr('id', 'uploadButton')
+      .attr('type', 'file')
+
+    // ----------------------------------------------------------------
+    // Mouse events
+    // ----------------------------------------------------------------
     world.on('mousedown', function (a, b) {
       var cursor = d3.mouse(this)
       var grid = pixel2grid(cursor)
@@ -306,37 +380,6 @@
     }
     */
 
-
-    function pixel2grid (cursor) {
-      var iso = [],
-          x = cursor[0],
-          y = cursor[1],
-          z = elevation
- 
-      y += z * 32 - 25
- 
-      iso[0] = Math.floor(x / 128 - y / 64)
-      iso[1] = Math.floor(x / 128 + y / 64)
-      iso[2] = z
-  
-      return iso
-   }
- 
-   function grid2pixel(iso) {
-     var px = [],
-         i = iso[0],
-         j = iso[1],
-         h = iso[2]
-
-     // Rotate
-     px[0] = i * 64  + j * 64
-     px[1] = -i * 32 + j * 32
-     px[2] = -i + j + h 
-
-     px[1] -= h * 32
-
-     return px 
-   }
 
 
  </script>
