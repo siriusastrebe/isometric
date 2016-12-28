@@ -158,6 +158,11 @@
       })
       queue = []
     }
+
+    // Error messages
+    socket.on('badFileType', function () {
+      alert('Improper file type. Try a .gif or .png file.')
+    })
  
     // ----------------------------------------------------------------
     // Tiler

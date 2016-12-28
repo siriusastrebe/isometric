@@ -128,6 +128,15 @@ io.on('connection', function (socket) {
       var fullPath = 'rooms/' + room + '/' + fileName;
       var name = fileName.split('.')[0]
 
+      // Files that start with 89504e47 are .png, 47494638 are .gif
+      var fileHex = new Buffer(buffer.toString('binary'), 'ascii').toString('hex')
+      var identifier = fileHex.substring(0, 8)
+      console.log('identifier', identifier)
+      if (identifier !== '89504e47' && identifier !== '47494638') {
+        socket.emit('badFileType')
+        return
+      }
+
       fs.open(fullPath, 'a', 0755, function(err, fd) {
         if (err) throw err;
 
