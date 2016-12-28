@@ -19,13 +19,13 @@
 
     #editor {
       width: 220px;
-      height: 400px;
+      max-height: 90vh;
       position: fixed;
       left: 5px;
       top: 10px;
       background-color: white;
       z-index: 2000;
-      overflow: hidden;
+      overflow: auto;
     }
 
     #editor #collapse {
@@ -50,16 +50,59 @@
     #editor img.tile:hover { border: 5px solid #8F8; }
     #editor img.tile.active { border: 5px inset #8F8; }
 
-    #uploadButton {
-      margin-top: 3em;
-      padding: 0.5em;
+    #editorTiles {
+      margin: 2em 0px;
     }
 
-    #uploadButton::after {
-      content: '128x96';
-      text-align: center;
+    #openUploaderButton {
+      margin: 1em auto;
+      width: 80%;
       display: block;
     }
+
+    #uploadDialog {
+      position: fixed;
+      left: 25vw;
+      top: 10vh;
+      width: 50vw;
+      height: 250px;
+      margin: auto;
+      z-index: 2000;
+      background-color: white;
+      box-shadow: 0px 0px 5px black;
+      text-align: center;
+    }
+
+    #uploadInstructions {
+      font-family: 'Arial';
+      margin-top: 30px;
+    }
+
+    #uploadClose {
+      display: inline-block;
+      float: right;
+      content: '✖'; /* UTF-8 symbol */
+      padding: 10px;
+      cursor: pointer;
+    }
+
+    #uploadInput {
+      display: block;
+      margin: 2em auto 1em auto;
+      width: 20vw;
+    }
+
+    #uploadButton {
+      display: block;
+      margin: 2em auto;
+      width: 20vw;
+    }
+
+    .uploadOption {
+      display: block;
+      margin: 1em auto;
+    }
+
   </style>
 </head>
 <body>
@@ -69,35 +112,65 @@
     // Socket
     // ----------------------------------------------------------------
     var socket = io()
+
+    // Adding to the world
+    socket.on('addTile', function (data) {
+      addQueue(data.id, data.type) 
+    })
+
+    socket.on('removeTile', removeTile)
+
+    socket.on('newTile', function (data) {
+      tileDescriptions[data.name] = { url: data.url }
+      renderEditorTiles()
+    })
+
+    // Initial synchronizing
+    var queue = []
     var synced = false
 
-    socket.on('addTile', function (data) { addTile(data.id, data.type) })
-    socket.on('removeTile', removeTile)
-    socket.on('roomState', function (data) { 
-      synced = true
+    socket.on('roomTiles', function (data) { 
       for (var id in data) {
-        addTile(id, data[id])
+        addQueue(id, data[id])
       }
     })
+
+    socket.on('roomDescription', function (data) {
+      synced = true
+      for (var name in data) {
+        tileDescriptions[name] = data[name]
+      }
+      popQueue()
+      renderEditorTiles()
+    })
+
+    function addQueue (id, type) {
+      if (synced) {
+        addTile(id, type)
+      } else {
+        queue.push({id: id, type: type})
+      }
+    }
+
+    function popQueue () {
+      queue.forEach(function (tile) {
+        addTile(tile.id, tile.type)
+      })
+      queue = []
+    }
  
     // ----------------------------------------------------------------
     // Tiler
     // ----------------------------------------------------------------
     var tiles = {}
- 
     var tileDescriptions = {
-      cobblestone: {
-        url: 'cobblestone.png'
-      }, 
       wireframe: {
         url: 'wireframe.png'
       },
       negative: {
         url: 'negative.png'
-     }
+      }
     }
-
-    var availableTiles = ['cobblestone', 'wireframe', 'negative']
  
     function createTile (type) {
       var tile = world.append('img')
@@ -144,6 +217,14 @@
       px[1] -= h * 32
 
       return px 
+    }
+
+    function allowedTiles () {
+      var available = []
+      for (var name in tileDescriptions) {
+        available.push(name)
+      }
+      return available
     }
 
     // ----------------------------------------------------------------
@@ -198,11 +279,13 @@
         console.log(elevation)
       })
 
-    renderEditorTiles()
+    var editorTiles = editor
+      .append('div')
+      .attr('id', 'editorTiles')
 
     function renderEditorTiles () {
-      var tiles = editor.selectAll('img.tile')
-        .data(availableTiles)
+      var tiles = editorTiles.selectAll('img.tile')
+        .data(allowedTiles())
         .enter()
         .append('img')
         .attr('class', 'tile')
@@ -213,20 +296,21 @@
       selectTile(selectedTile)
 
       function selectTile (tileName) {
-        tiles.attr('class', 'tile')
+        editorTiles.selectAll('img.tile')
+          .attr('class', 'tile')
 
-        var tile = d3.select('#' + tileName)
-        tile.attr('class', 'tile active')
+        editorTiles.select('#' + tileName)
+          .attr('class', 'tile active')
 
         selectedTile = tileName
       }
     }
 
-    var uploadTilInput = editor
-      .append('input')
-      .attr('id', 'uploadInput')
-      .attr('type', 'file')
-      .on('change', sendFile)
+    var openUploaderButton = editor
+      .append('button')
+      .attr('id', 'openUploaderButton')
+      .text('New tile')
+      .on('click', openUploader)
 
     // ----------------------------------------------------------------
     // Mouse events
@@ -274,11 +358,19 @@
         .style('z-index', px[2] + 1)
 
       if (drawing || (!erasing && !tiles[id])) {
-        wireframe
-          .attr('src', tileDescriptions['wireframe'].url)
+        var url = tileDescriptions['wireframe'].url
+
+        if (wireframe.attr('src') !== url) {
+          wireframe
+            .attr('src', url)
+        }
       } else {
-        wireframe
-          .attr('src', tileDescriptions['negative'].url)
+        var url = tileDescriptions['negative'].url
+
+        if (wireframe.attr('src') !== url) {
+          wireframe
+            .attr('src', url)
+        }
       }
 
       if (synced) {
@@ -340,60 +432,80 @@
       }
     }
 
-
     // ----------------------------------------------------------------
     // File uploader, stolen from 
     // http://stackoverflow.com/questions/14788898/save-a-image-using-nodejs-expressjs-and-socket-io
     // ----------------------------------------------------------------
-    function sendFile () {
-      var e = d3.event
-      console.log(e)
+    var file
 
+    var uploadDialog = d3.select('body')
+      .append('div')
+      .attr('id', 'uploadDialog')
+      .style('display', 'none')
+
+    function openUploader () {
+      uploadDialog.style('display', 'block')
+    }
+
+    function closeUploader () {
+      uploadDialog.style('display', 'none')
+    }
+
+    var uploadClose = uploadDialog
+      .append('div')
+      .attr('id', 'uploadClose')
+      .text('✖')
+      .on('click', closeUploader)
+
+    var uploadInstructions = uploadDialog
+      .append('p')
+      .attr('id', 'uploadInstructions')
+      .text('Upload a .png or .gif 128x96')
+      
+    var uploadTileInput = uploadDialog
+      .append('input')
+      .attr('id', 'uploadInput')
+      .attr('type', 'file')
+      .on('change', stageFile)
+
+/*
+    var uploadName = uploadDialog
+      .append('input')
+      .attr('type', 'input')
+      .attr('id', 'uploadName')
+      .attr('class', 'uploadOption')
+      .attr('value', 'Tile name')
+*/
+
+    var uploadButton = uploadDialog
+      .append('button')
+      .attr('id', 'uploadButton')
+      .text('Upload image')
+      .on('click', sendFile)
+
+    function stageFile () {
+      var e = d3.event
       var files = e.target.files || e.dataTransfer.files;
 
       if (files) { 
         file = files[0] 
+      }
+    }
 
-        var reader = new FileReader();
+    function sendFile () {
+      if (file) {
+        var reader = new FileReader()
 
         reader.onload = function (e) {
           console.log('Sending file...')
           var buffer = e.target.result
-          socket.emit('send-file', file.name, buffer)
+          socket.emit('newTile', file.name, buffer)
+          closeUploader()
         }
 
         reader.readAsBinaryString(file)
       }
     }
-
-    /*
-    var queue = []
-    var queueTimer
-    function queueUp (title, data) {
-      console.log(title, data)
-
-      queue.unshift({title: title, data: data})
-
-      if (queueTimer) {
-        clearTimeout(queueTimer)
-        setTimeout(queuePop, 1000)
-      } else {
-        clearTimeout(queueTimer, 1000)
-        setTimeout(queuePop)
-      }
-
-			setTimeout(queuePop, 1000)
-    }
-
-    function queuePop () {
-      queuePop
-
-      socket.emit(tlte, id)
-    }
-    */
-
-
-
  </script>
 </body>
 </html>

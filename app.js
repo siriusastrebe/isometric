@@ -47,26 +47,63 @@ var io = socketio(server)
 
 var roomTiles = {}
 var roomNeedsWrite = {}
+var roomDescriptions = {}
+
+var defaultDescription = {
+  cobblestone: {
+    url: 'cobblestone.png'
+  }
+}
+
 
 io.on('connection', function (socket) {
   var referer = socket.handshake.headers.referer
   var room = url.parse(referer).pathname.substring(1)
 
+  // Default to lobby
+  if (room === '') { room = 'lobby' }
+
   socket.join(room)
-  if (roomTiles[room] === undefined) {
-		fs.readFile('rooms/' + room + '.txt', 'utf8', function (err, data) {
-      if (!err) {
-        roomTiles[room] = JSON.parse(data)
-        socket.emit('roomState', roomTiles[room])
-      } else if (err.code === 'ENOENT') {
-        roomTiles[room] = {}
-        socket.emit('roomState', roomTiles[room])
+
+  // ----------------------------------------------------------------
+  // Joining a new room
+  // ----------------------------------------------------------------
+  if (roomTiles[room] === undefined && roomDescriptions[room] === undefined) {
+    fs.exists('rooms/' + room, function (exists) {
+      if (exists) {
+        fs.readFile('rooms/' + room + '/tiles.txt', 'utf8', function (err, data) {
+          if (!err) {
+            roomTiles[room] = JSON.parse(data)
+          } else if (err.code === 'ENOENT') {
+            roomTiles[room] = {}
+          }
+          socket.emit('roomTiles', roomTiles[room])
+        })
+
+        fs.readFile('rooms/' + room + '/description.txt', 'utf8', function (err, data) {
+          if (!err) {
+            roomDescriptions[room] = JSON.parse(data)
+          } else if (err.code === 'ENOENT') {
+            roomDescriptions[room] = defaultDescription
+          }
+          socket.emit('roomDescription', roomDescriptions[room])
+        })
+      } else {
+        fs.mkdir('rooms/' + room, function () {
+          roomTiles[room] = {}
+          socket.emit('roomTiles', roomTiles[room])
+        })
       }
     })
   } else {
-    socket.emit('roomState', roomTiles[room])
+    socket.emit('roomTiles', roomTiles[room])
+    socket.emit('roomDescription', roomDescriptions[room])
   }
 
+
+  // ----------------------------------------------------------------
+  // Editing a room
+  // ----------------------------------------------------------------
   socket.on('addTile', function (data) {
     if (roomTiles[room]) {
       socket.to(room).emit('addTile', data)
@@ -83,41 +120,45 @@ io.on('connection', function (socket) {
     }
   })
 
-//  socket.on('removeTile')
 //  socket.on('addTileDefinition')
 //  socket.on('removeTileDefinition')
 
-  socket.on('send-file', function(name, buffer) {
-    var fileName = 'rooms/' + name;
+  socket.on('newTile', function (fileName, buffer) {
+    if (roomDescriptions[room]) {
+      var fullPath = 'rooms/' + room + '/' + fileName;
+      var name = fileName.split('.')[0]
 
-    fs.open(fileName, 'a', 0755, function(err, fd) {
-      if (err) throw err;
+      fs.open(fullPath, 'a', 0755, function(err, fd) {
+        if (err) throw err;
 
-      fs.write(fd, buffer, null, 'Binary', function (err, written, buff) {
-        fs.close(fd, function () {
-          console.log('File saved successful!')
+        fs.write(fd, buffer, null, 'Binary', function (err, written, buff) {
+          fs.close(fd, function () {
+            roomDescriptions[room][name] = {url: fullPath}
+            var json = JSON.stringify(roomDescriptions[room], null, 2)
+
+            fs.writeFile('rooms/' + room + '/description.txt', json, function (a) {
+              console.log('Writing description of ', room, a)
+            })
+
+            io.to(room).emit('newTile', {name: name, url: fullPath})
+          })
         })
       })
-    })
+    }
   })
 
   socket.emit('welcome', { message: 'Welcome!', id: socket.id });
-
-/*
-  socket.on('i am client', function (id) { console.log(id); socket.broadcast.to(room).emit('whoot', 'whoot ' + id ); io.to(room).emit('whoot', 'hahahahaha') });
-
-  setTimeout(function () { 
-    socket.disconnect()
-  }, 5000)
-*/
 })
 
+// ----------------------------------------------------------------
+// Chron jobs
+// ----------------------------------------------------------------
 // Saving rooms
 setInterval(function () {
   for (var room in roomNeedsWrite) {
     var json = JSON.stringify(roomTiles[room], null, 2)
-    fs.writeFile('rooms/' + room + '.txt', json, function(a) {
-      console.log('Writing changes to ', room, a)
+    fs.writeFile('rooms/' + room + '/tiles.txt', json, function(a) {
+      console.log('Writing tiles of ', room, a)
     })
     delete roomNeedsWrite[room]
   }

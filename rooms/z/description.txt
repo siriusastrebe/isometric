@@ -1,0 +1,8 @@
+{
+  "cobblestone": {
+    "url": "cobblestone.png"
+  },
+  "lower": {
+    "url": "rooms/z/lower.png"
+  }
+}

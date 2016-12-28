@@ -1,0 +1,1 @@
+{"cobblestone":{"url":"cobblestone.png"},"coal.png":{"url":"coal.png"},"bread.png":{"url":"bread.png"},"white.png":{"url":"white.png"}}
