@@ -87,11 +87,19 @@ io.on('connection', function (socket) {
 //  socket.on('addTileDefinition')
 //  socket.on('removeTileDefinition')
 
-//  function getFullState () {
-//  }
+  socket.on('send-file', function(name, buffer) {
+    var fileName = 'rooms/' + name;
 
-//  function saveState () {
-//  }
+    fs.open(fileName, 'a', 0755, function(err, fd) {
+      if (err) throw err;
+
+      fs.write(fd, buffer, null, 'Binary', function (err, written, buff) {
+        fs.close(fd, function () {
+          console.log('File saved successful!')
+        })
+      })
+    })
+  })
 
   socket.emit('welcome', { message: 'Welcome!', id: socket.id });
 

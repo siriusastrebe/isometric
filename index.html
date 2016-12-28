@@ -69,20 +69,6 @@
     // Socket
     // ----------------------------------------------------------------
     var socket = io()
-
-    socket.on('welcome', function(data) {
-      console.log('hi')
-
-      // Respond with a message including this clients' id sent from the server
-      socket.emit('i am client', {data: 'foo!', id: data.id})
-    })
-    socket.on('time', function(data) {
-      console.log('time')
-    });
-    socket.on('error', console.error.bind(console))
-    socket.on('message', console.log.bind(console))
-    socket.on('whoot', function(a, b) { console.log(a, b) })
-
     var synced = false
 
     socket.on('addTile', function (data) { addTile(data.id, data.type) })
@@ -236,10 +222,11 @@
       }
     }
 
-    var uploadTileButton = editor
+    var uploadTilInput = editor
       .append('input')
-      .attr('id', 'uploadButton')
+      .attr('id', 'uploadInput')
       .attr('type', 'file')
+      .on('change', sendFile)
 
     // ----------------------------------------------------------------
     // Mouse events
@@ -353,6 +340,31 @@
       }
     }
 
+
+    // ----------------------------------------------------------------
+    // File uploader, stolen from 
+    // http://stackoverflow.com/questions/14788898/save-a-image-using-nodejs-expressjs-and-socket-io
+    // ----------------------------------------------------------------
+    function sendFile () {
+      var e = d3.event
+      console.log(e)
+
+      var files = e.target.files || e.dataTransfer.files;
+
+      if (files) { 
+        file = files[0] 
+
+        var reader = new FileReader();
+
+        reader.onload = function (e) {
+          console.log('Sending file...')
+          var buffer = e.target.result
+          socket.emit('send-file', file.name, buffer)
+        }
+
+        reader.readAsBinaryString(file)
+      }
+    }
 
     /*
     var queue = []
