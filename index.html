@@ -294,7 +294,7 @@
         .enter()
         .append('img')
         .attr('class', 'tile')
-        .attr('id', function (a) { return a })
+        .attr('id', function (a) { return 'img-' + a })
         .attr('src', function (a) { return tileDescriptions[a].url })
         .on('click', selectTile)
 
@@ -304,7 +304,7 @@
         editorTiles.selectAll('img.tile')
           .attr('class', 'tile')
 
-        editorTiles.select('#' + tileName)
+        editorTiles.select('#img-' + tileName)
           .attr('class', 'tile active')
 
         selectedTile = tileName
@@ -438,8 +438,7 @@
     }
 
     // ----------------------------------------------------------------
-    // File uploader, stolen from 
-    // http://stackoverflow.com/questions/14788898/save-a-image-using-nodejs-expressjs-and-socket-io
+    // File uploader
     // ----------------------------------------------------------------
     var file
 
@@ -488,6 +487,8 @@
       .text('Upload image')
       .on('click', sendFile)
 
+    // Stolen from: 
+    // http://stackoverflow.com/questions/14788898/save-a-image-using-nodejs-expressjs-and-socket-io
     function stageFile () {
       var e = d3.event
       var files = e.target.files || e.dataTransfer.files;
@@ -504,7 +505,7 @@
         reader.onload = function (e) {
           console.log('Sending file...')
           var buffer = e.target.result
-          socket.emit('newTile', file.name, buffer)
+          socket.emit('uploadTile', file.name, buffer)
           closeUploader()
         }
 

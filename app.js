@@ -2,7 +2,8 @@ var http = require('http'),
     url = require('url'),
     path = require('path'),
     fs = require('fs'),
-    socketio = require('socket.io')
+    socketio = require('socket.io'),
+    sha1 = require('./sha1')
 
 var mimeTypes = {
     "html": "text/html",
@@ -120,43 +121,46 @@ io.on('connection', function (socket) {
     }
   })
 
-//  socket.on('addTileDefinition')
-//  socket.on('removeTileDefinition')
-
-  socket.on('newTile', function (fileName, buffer) {
+  socket.on('uploadTile', function (fileName, buffer) {
     if (roomDescriptions[room]) {
-      var fullPath = 'rooms/' + room + '/' + fileName;
-      var name = fileName.split('.')[0]
+      var extension = fileName.split('.')[fileName.split('.').length - 1]
+      var sanitizedName = fileName.split('.').slice(0, -1).join('').replace(/\W/g, '')
 
       // Files that start with 89504e47 are .png, 47494638 are .gif
+      // http://www.astro.keele.ac.uk/oldusers/rno/Computing/File_magic.html#Image
+      // http://stackoverflow.com/questions/30183082/convert-binary-to-hex-in-node-js
       var fileHex = new Buffer(buffer.toString('binary'), 'ascii').toString('hex')
       var identifier = fileHex.substring(0, 8)
-      console.log('identifier', identifier)
       if (identifier !== '89504e47' && identifier !== '47494638') {
         socket.emit('badFileType')
         return
       }
 
-      fs.open(fullPath, 'a', 0755, function(err, fd) {
-        if (err) throw err;
+      var hash = sha1.hash(fileHex)
+      var fullPath = 'tiles/' + hash + '.' + extension
 
-        fs.write(fd, buffer, null, 'Binary', function (err, written, buff) {
-          fs.close(fd, function () {
-            roomDescriptions[room][name] = {url: fullPath}
-            var json = JSON.stringify(roomDescriptions[room], null, 2)
-
-            fs.writeFile('rooms/' + room + '/description.txt', json, function (a) {
-              console.log('Writing description of ', room, a)
+      fs.exists(fullPath, function (exists) {
+        if (!exists) {
+          fs.open(fullPath, 'a', 0755, function(err, fd) {
+            if (err) throw err;
+    
+            fs.write(fd, buffer, null, 'Binary', function (err, written, buff) {
+              fs.close(fd, function () {
+                roomDescriptions[room][hash] = {url: fullPath}
+                var json = JSON.stringify(roomDescriptions[room], null, 2)
+    
+                fs.writeFile('rooms/' + room + '/description.txt', json, function (a) {
+                  console.log('Writing description of ', room, a)
+                })
+              })
             })
-
-            io.to(room).emit('newTile', {name: name, url: fullPath})
           })
-        })
+        }
+
+        io.to(room).emit('newTile', {hash: hash, url: fullPath})
       })
     }
   })
-
-  socket.emit('welcome', { message: 'Welcome!', id: socket.id });
 })
 
 // ----------------------------------------------------------------
