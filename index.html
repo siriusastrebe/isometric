@@ -54,13 +54,13 @@
       margin: 2em 0px;
     }
 
-    #openUploaderButton {
+    #openUploaderButton, #openOptionsButton {
       margin: 1em auto;
       width: 80%;
       display: block;
     }
 
-    #uploadDialog {
+    #uploadDialog, #optionsDialog {
       position: fixed;
       left: 25vw;
       top: 10vh;
@@ -78,7 +78,7 @@
       margin-top: 30px;
     }
 
-    #uploadClose {
+    #uploadClose, #optionsClose {
       display: inline-block;
       float: right;
       content: '✖'; /* UTF-8 symbol */
@@ -125,6 +125,11 @@
       renderEditorTiles()
     })
 
+    socket.on('editTile', function (data) {
+      editDescription(data.tile, data.changes)
+      editTile(data.tile, data.changes)
+    })
+
     // Initial synchronizing
     var queue = []
     var synced = false
@@ -144,6 +149,10 @@
       renderEditorTiles()
     })
 
+    socket.on('badFileType', function () {
+      alert('Improper file type. Try a .gif or .png file.')
+    })
+
     function addQueue (id, type) {
       if (synced) {
         addTile(id, type)
@@ -158,11 +167,6 @@
       })
       queue = []
     }
-
-    // Error messages
-    socket.on('badFileType', function () {
-      alert('Improper file type. Try a .gif or .png file.')
-    })
  
     // ----------------------------------------------------------------
     // Tiler
@@ -191,6 +195,11 @@
 
     function id2grid (id) {
       return id.split(',').map(function (loc) { return Number(loc) })
+    }
+    
+    function tile2grid (tile) {
+      var tile = tile
+      return [Number(tile.attr('i')), Number(tile.attr('j')), Number(tile.attr('z'))]
     }
 
     function pixel2grid (cursor) {
@@ -224,6 +233,27 @@
       return px 
     }
 
+    function editDescription (name, changes) {
+      for (var change in changes) {
+        tileDescriptions[name][change] = changes[change]
+      }
+    }
+
+    function applyOffset (px, tileType) {
+      var desc = tileDescriptions[tileType]
+      var xOffset = Number(desc.xOffset)
+      var yOffset = Number(desc.yOffset)
+
+      if (!isNaN(xOffset)) {
+        px[0] += xOffset
+      }
+      if (!isNaN(yOffset)) {
+        px[1] -= yOffset
+      }
+
+      return px
+    }
+
     function allowedTiles () {
       var available = []
       for (var name in tileDescriptions) {
@@ -231,6 +261,85 @@
       }
       return available
     }
+
+    // ----------------------------------------------------------------
+    // Tile Creation and Editing
+    // ----------------------------------------------------------------
+    function addTile (id, type, sendSocket) {
+      if (!tiles[id]) {
+        var grid = id2grid(id)
+        var px = applyOffset(grid2pixel(grid), type)
+
+        var tile = createTile(type)
+
+        tile
+          .style('left', px[0] + 'px')
+          .style('top', px[1] + 'px')
+          .style('z-index', px[2])
+          .attr('class', 'tile-' + type)
+          .attr('i', grid[0])
+          .attr('j', grid[1])
+          .attr('z', grid[2])
+
+        if (!document.hidden) {
+          tile.style('top', px[1] - 500 + 'px')
+          tile.transition().ease(d3.easeBounce)
+            .style('top', px[1] + 'px')
+        }
+
+        tiles[id] = tile
+
+        if (sendSocket) {
+          socket.emit('addTile', {id: id, type: type})
+        }
+      }
+    }
+
+    function editTile (name, changed) {
+      var tiles = world.selectAll('img.' + 'tile-' + name)
+
+      tiles.each(function (a) {
+        var tile = d3.select(this)
+
+        if (changed.xOffset !== undefined || changed.yOffset !== undefined) {
+          var grid = tile2grid(tile)
+          var px = applyOffset(grid2pixel(grid), name)
+
+          if (changed.xOffset !== undefined) {
+            tile
+              .style('left', px[0] + 'px')
+          }
+          if (changed.yOffset !== undefined) {
+            tile
+              .style('top', px[1] + 'px')
+          }
+        }
+      })
+    }
+
+    function removeTile (id, sendSocket) {
+      if (tiles[id]) {
+        var tile = tiles[id] 
+        var top = Number(tile.style('top').substr(0, tile.style('top').length - 2))
+
+        if (!document.hidden) {
+          tile.transition().ease(d3.easeLinear)
+            .style('top', top + 300 + 'px')
+            .style('opacity', 0)
+            .remove()
+        } else {
+          tile.remove()
+        }
+
+        delete tiles[id]
+
+        if (sendSocket) {
+          socket.emit('removeTile', id)
+        }
+      }
+    }
+
+
 
     // ----------------------------------------------------------------
     // Create world
@@ -272,7 +381,9 @@
       .attr('src', 'lower.png')
       .on('click', function () {
         elevation -= 1
-        console.log(elevation)
+
+//        d3.selectAll('img.terrain')
+//          .each(paintTerrain)
       })
 
     var higherElevationButton = editor
@@ -281,8 +392,32 @@
       .attr('src', 'higher.png')
       .on('click', function () {
         elevation += 1
+
+//        d3.selectAll('img.terrain')
+//          .each(paintTerrain)
+
         console.log(elevation)
       })
+
+/*
+    function paintTerrain () {
+      var z = Number(this.getAttribute('z'))
+      if (z < elevation) {
+        d3.select(this)
+          .style('opacity', 0.4)
+          .style('filter', '')
+
+      } else if (z === elevation) {
+        d3.select(this)
+          .style('opacity', 1)
+          .style('filter', '')
+      } else {
+        d3.select(this)
+          .style('opacity', 0.8)
+          .style('filter', 'brightness(20%)')
+      }
+    }
+*/
 
     var editorTiles = editor
       .append('div')
@@ -308,6 +443,9 @@
           .attr('class', 'tile active')
 
         selectedTile = tileName
+
+        // If tile options editor is open
+        refreshOptions()
       }
     }
 
@@ -316,6 +454,12 @@
       .attr('id', 'openUploaderButton')
       .text('New tile')
       .on('click', openUploader)
+
+    var openOptionsButton = editor
+      .append('button')
+      .attr('id', 'openOptionsButton')
+      .text('Tile Options')
+      .on('click', openOptions)
 
     // ----------------------------------------------------------------
     // Mouse events
@@ -383,56 +527,6 @@
           addTile(id, selectedTile, true)
         } else if (erasing) {
           removeTile(id, true)
-        }
-      }
-    }
-
-    function addTile (id, type, sendSocket) {
-      if (!tiles[id]) {
-        var grid = id2grid(id)
-        var px = grid2pixel(grid)
-
-        var tile = createTile(type)
-
-        tile
-          .style('left', px[0] + 'px')
-          .style('top', px[1] + 'px')
-          .style('z-index', px[2])
-          .attr('i', grid[0])
-          .attr('j', grid[1])
-
-        if (!document.hidden) {
-          tile.style('top', px[1] - 500 + 'px')
-          tile.transition().ease(d3.easeBounce)
-            .style('top', px[1] + 'px')
-        }
-
-        tiles[id] = tile
-
-        if (sendSocket) {
-          socket.emit('addTile', {id: id, type: type})
-        }
-      }
-    }
-
-    function removeTile (id, sendSocket) {
-      if (tiles[id]) {
-        var tile = tiles[id] 
-        var top = Number(tile.style('top').substr(0, tile.style('top').length - 2))
-
-        if (!document.hidden) {
-          tile.transition().ease(d3.easeLinear)
-            .style('top', top + 300 + 'px')
-            .style('opacity', 0)
-            .remove()
-        } else {
-          tile.remove()
-        }
-
-        delete tiles[id]
-
-        if (sendSocket) {
-          socket.emit('removeTile', id)
         }
       }
     }
@@ -512,6 +606,113 @@
         reader.readAsBinaryString(file)
       }
     }
+
+    // ----------------------------------------------------------------
+    // Tile Options
+    // ----------------------------------------------------------------
+    var optionsDialog = d3.select('body')
+      .append('div')
+      .attr('id', 'optionsDialog')
+      .style('display', 'none')
+
+    function openOptions () {
+      refreshOptions()
+      optionsDialog.style('display', 'block')
+    }
+
+    function closeOptions () {
+      optionsDialog.style('display', 'none')
+    }
+
+    var optionsClose = optionsDialog
+      .append('div')
+      .attr('id', 'optionsClose')
+      .text('✖')
+      .on('click', closeOptions)
+
+    var previewScreen = optionsDialog
+      .append('div')
+      .style('position', 'relative')
+      .style('top', '80px')
+      .style('left', '60px')
+
+    var preview = previewScreen
+      .append('img')
+
+    var reference = previewScreen
+      .append('img')
+      .attr('src', tileDescriptions['wireframe'].url)
+      .style('position', 'absolute')
+      .style('left', 0)
+      .style('top', 0)
+
+    var xOffset = optionsDialog
+      .append('input')
+      .attr('id', 'xOffset')
+      .attr('type', 'number')
+      .on('change', updateXOffset)
+
+
+    var yOffset = optionsDialog
+      .append('input')
+      .attr('id', 'yOffset')
+      .attr('type', 'number')
+      .on('change', updateYOffset)
+
+    function updateXOffset() {
+      var offset = Number(d3.event.target.value)
+      if (!isNaN(offset)) {
+        preview
+          .style('left', offset + 'px')
+      }
+    }
+
+    function updateYOffset() {
+      var offset = -Number(d3.event.target.value)
+      if (!isNaN(offset)) {
+        preview
+          .style('top', offset + 'px')
+      }
+    }
+
+    var saveOptionsButton = optionsDialog
+      .append('button')
+      .attr('id', 'saveOptionsButton')
+      .text('Save tile options')
+      .on('click', saveOptions)
+
+    function saveOptions () {
+      var xOffset = Number(optionsDialog.select('#xOffset').property('value'))
+      var yOffset = Number(optionsDialog.select('#yOffset').property('value'))
+
+      var changes = {}
+
+      if (!isNaN(xOffset) && xOffset !== Number(tileDescriptions[selectedTile].xOffset)) {
+        changes.xOffset = xOffset
+      }
+
+      if (!isNaN(yOffset)) { 
+        changes.yOffset = yOffset
+      }
+
+      socket.emit('editTile', {tile: selectedTile, changes: changes})
+    }
+
+    function refreshOptions () {
+      var xOffset = Number(tileDescriptions[selectedTile].xOffset) || 0
+      var yOffset = -Number(tileDescriptions[selectedTile].yOffset) || 0
+
+      optionsDialog.select('#xOffset').property('value', xOffset)
+      optionsDialog.select('#yOffset').property('value', -yOffset)
+
+      preview
+        .attr('src', tileDescriptions[selectedTile].url)
+        .style('position', 'absolute')
+        .style('left', xOffset + 'px')
+        .style('top', yOffset + 'px')
+    }
+
+
  </script>
 </body>
 </html>

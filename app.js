@@ -121,6 +121,18 @@ io.on('connection', function (socket) {
     }
   })
 
+  socket.on('editTile', function (data) {
+    var tile = data.tile
+    if (roomDescriptions[room] && roomDescriptions[room][tile]) {
+      var changes = data.changes
+      for (var change in changes) {
+        roomDescriptions[room][tile][change] = changes[change]
+      }
+
+      io.to(room).emit('editTile', data)
+    }
+  })
+
   socket.on('uploadTile', function (fileName, buffer) {
     if (roomDescriptions[room]) {
       var extension = fileName.split('.')[fileName.split('.').length - 1]
