@@ -106,7 +106,7 @@ io.on('connection', function (socket) {
   // Editing a room
   // ----------------------------------------------------------------
   socket.on('addTile', function (data) {
-    if (roomTiles[room]) {
+    if (roomTiles[room] && roomDescription[room][data.id]) {
       socket.to(room).emit('addTile', data)
       roomTiles[room][data.id] = data.type
       roomNeedsWrite[room] = true
@@ -129,6 +129,12 @@ io.on('connection', function (socket) {
         roomDescriptions[room][tile][change] = changes[change]
       }
 
+      var json = JSON.stringify(roomDescriptions[room], null, 2)
+    
+      fs.writeFile('rooms/' + room + '/description.txt', json, function (a) {
+        console.log('Writing description of ', room, a)
+      })
+
       io.to(room).emit('editTile', data)
     }
   })
@@ -137,6 +143,12 @@ io.on('connection', function (socket) {
     if (roomDescriptions[room]) {
       var extension = fileName.split('.')[fileName.split('.').length - 1]
       var sanitizedName = fileName.split('.').slice(0, -1).join('').replace(/\W/g, '')
+      var fileSize = buffer.length
+
+      if (fileSize > 1000000) {
+        socket.emit('alert', 'Uploaded file is too large. Try a .png or .gif under 1MB')
+        return
+      }
 
       // Files that start with 89504e47 are .png, 47494638 are .gif
       // http://www.astro.keele.ac.uk/oldusers/rno/Computing/File_magic.html#Image
@@ -144,7 +156,8 @@ io.on('connection', function (socket) {
       var fileHex = new Buffer(buffer.toString('binary'), 'ascii').toString('hex')
       var identifier = fileHex.substring(0, 8)
       if (identifier !== '89504e47' && identifier !== '47494638') {
-        socket.emit('badFileType')
+        console.log('Invalid file type', extension, identifier)
+        socket.emit('alert', 'Improper file type. Try a .gif or .png file.')
         return
       }
 
@@ -157,6 +170,7 @@ io.on('connection', function (socket) {
             if (err) throw err;
     
             fs.write(fd, buffer, null, 'Binary', function (err, written, buff) {
+              console.log('File ', fullPath + ' written')
               fs.close(fd, function () {
                 roomDescriptions[room][hash] = {url: fullPath}
                 var json = JSON.stringify(roomDescriptions[room], null, 2)

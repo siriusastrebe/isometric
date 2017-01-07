@@ -121,7 +121,7 @@
     socket.on('removeTile', removeTile)
 
     socket.on('newTile', function (data) {
-      tileDescriptions[data.name] = { url: data.url }
+      tileDescriptions[data.hash] = { url: data.url }
       renderEditorTiles()
     })
 
@@ -141,6 +141,7 @@
     })
 
     socket.on('roomDescription', function (data) {
+console.log('roomDescription', data)
       synced = true
       for (var name in data) {
         tileDescriptions[name] = data[name]
@@ -149,8 +150,8 @@
       renderEditorTiles()
     })
 
-    socket.on('badFileType', function () {
-      alert('Improper file type. Try a .gif or .png file.')
+    socket.on('alert', function (message) {
+      alert(message)
     })
 
     function addQueue (id, type) {
@@ -539,9 +540,12 @@
     var uploadDialog = d3.select('body')
       .append('div')
       .attr('id', 'uploadDialog')
+      .attr('class', 'modal')
       .style('display', 'none')
 
     function openUploader () {
+      d3.select('body').selectAll('.modal')
+        .style('display', 'none')
       uploadDialog.style('display', 'block')
     }
 
@@ -566,15 +570,6 @@
       .attr('type', 'file')
       .on('change', stageFile)
 
-/*
-    var uploadName = uploadDialog
-      .append('input')
-      .attr('type', 'input')
-      .attr('id', 'uploadName')
-      .attr('class', 'uploadOption')
-      .attr('value', 'Tile name')
-*/
-
     var uploadButton = uploadDialog
       .append('button')
       .attr('id', 'uploadButton')
@@ -587,8 +582,18 @@
       var e = d3.event
       var files = e.target.files || e.dataTransfer.files;
 
-      if (files) { 
-        file = files[0] 
+      console.log(files[0])
+      if (files && files[0]) {
+        var extension = files[0].name.split('.')[files[0].name.split('.').length - 1]
+        if (extension === 'gif' || extension === 'png') {
+          if (files[0].size <= 1000000) {
+            file = files[0] 
+          } else {
+            alert('File size of ' + (files[0].size / 1000000).toFixed(2) + 'MB is too large. Try uploading a .png or .gif under 1MB.')
+          }
+        } else {
+          alert('File type ' + extension + ' is not permitted. Please try a .png or .gif file type.')
+        }
       }
     }
 
@@ -613,10 +618,13 @@
     var optionsDialog = d3.select('body')
       .append('div')
       .attr('id', 'optionsDialog')
+      .attr('class', 'modal')
       .style('display', 'none')
 
     function openOptions () {
       refreshOptions()
+      d3.select('body').selectAll('.modal')
+        .style('display', 'none')
       optionsDialog.style('display', 'block')
     }
 
