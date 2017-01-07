@@ -118,16 +118,25 @@
       addQueue(data.id, data.type) 
     })
 
-    socket.on('removeTile', removeTile)
+    socket.on('subtractTile', subtractTile)
 
     socket.on('newTile', function (data) {
+      console.log('new tile', data)
       tileDescriptions[data.hash] = { url: data.url }
       renderEditorTiles()
     })
 
     socket.on('editTile', function (data) {
+      console.log('edit tile', data)
       editDescription(data.tile, data.changes)
       editTile(data.tile, data.changes)
+    })
+
+    socket.on('deleteTile', function (data) {
+      console.log('delete tile', data)
+      delete tileDescriptions[data]
+      
+      renderEditorTiles()
     })
 
     // Initial synchronizing
@@ -141,7 +150,7 @@
     })
 
     socket.on('roomDescription', function (data) {
-console.log('roomDescription', data)
+      console.log('roomDescription', data)
       synced = true
       for (var name in data) {
         tileDescriptions[name] = data[name]
@@ -156,7 +165,11 @@ console.log('roomDescription', data)
 
     function addQueue (id, type) {
       if (synced) {
-        addTile(id, type)
+        if (tileDescriptions[type]) {
+          addTile(id, type)
+        } else {
+          console.log('No description for ' + type)
+        }
       } else {
         queue.push({id: id, type: type})
       }
@@ -164,7 +177,11 @@ console.log('roomDescription', data)
 
     function popQueue () {
       queue.forEach(function (tile) {
-        addTile(tile.id, tile.type)
+        if (tileDescriptions[tile.type]) {
+          addTile(tile.id, tile.type)
+        } else {
+          console.log('No description for ' + tile.type)
+        }
       })
       queue = []
     }
@@ -175,10 +192,12 @@ console.log('roomDescription', data)
     var tiles = {}
     var tileDescriptions = {
       wireframe: {
-        url: 'wireframe.png'
+        url: 'wireframe.png',
+        hideInEditor: true
       },
       negative: {
-        url: 'negative.png'
+        url: 'negative.png',
+        hideInEditor: true
       }
     }
  
@@ -258,16 +277,18 @@ console.log('roomDescription', data)
     function allowedTiles () {
       var available = []
       for (var name in tileDescriptions) {
-        available.push(name)
+        if (!tileDescriptions[name].hideInEditor) {
+          available.push(name)
+        }
       }
       return available
     }
 
     // ----------------------------------------------------------------
-    // Tile Creation and Editing
+    // Tile Creation
     // ----------------------------------------------------------------
     function addTile (id, type, sendSocket) {
-      if (!tiles[id]) {
+      if (!tiles[id] && tileDescriptions[type]) {
         var grid = id2grid(id)
         var px = applyOffset(grid2pixel(grid), type)
 
@@ -318,7 +339,7 @@ console.log('roomDescription', data)
       })
     }
 
-    function removeTile (id, sendSocket) {
+    function subtractTile (id, sendSocket) {
       if (tiles[id]) {
         var tile = tiles[id] 
         var top = Number(tile.style('top').substr(0, tile.style('top').length - 2))
@@ -335,7 +356,7 @@ console.log('roomDescription', data)
         delete tiles[id]
 
         if (sendSocket) {
-          socket.emit('removeTile', id)
+          socket.emit('subtractTile', id)
         }
       }
     }
@@ -427,6 +448,8 @@ console.log('roomDescription', data)
     function renderEditorTiles () {
       var tiles = editorTiles.selectAll('img.tile')
         .data(allowedTiles())
+
+      tiles
         .enter()
         .append('img')
         .attr('class', 'tile')
@@ -434,9 +457,16 @@ console.log('roomDescription', data)
         .attr('src', function (a) { return tileDescriptions[a].url })
         .on('click', selectTile)
 
-      selectTile(selectedTile)
+     tiles
+        .exit()
+        .remove()
 
-      function selectTile (tileName) {
+
+      selectTile(selectedTile)
+    }
+
+    function selectTile (tileName) {
+      if (tileName) {
         editorTiles.selectAll('img.tile')
           .attr('class', 'tile')
 
@@ -444,7 +474,7 @@ console.log('roomDescription', data)
           .attr('class', 'tile active')
 
         selectedTile = tileName
-
+  
         // If tile options editor is open
         refreshOptions()
       }
@@ -527,7 +557,7 @@ console.log('roomDescription', data)
         if (drawing) {
           addTile(id, selectedTile, true)
         } else if (erasing) {
-          removeTile(id, true)
+          subtractTile(id, true)
         }
       }
     }
@@ -660,7 +690,6 @@ console.log('roomDescription', data)
       .attr('type', 'number')
       .on('change', updateXOffset)
 
-
     var yOffset = optionsDialog
       .append('input')
       .attr('id', 'yOffset')
@@ -690,36 +719,67 @@ console.log('roomDescription', data)
       .on('click', saveOptions)
 
     function saveOptions () {
-      var xOffset = Number(optionsDialog.select('#xOffset').property('value'))
-      var yOffset = Number(optionsDialog.select('#yOffset').property('value'))
+      if (tileDescriptions[selectedTile]) {
+        var xOffset = Number(optionsDialog.select('#xOffset').property('value'))
+        var yOffset = Number(optionsDialog.select('#yOffset').property('value'))
 
-      var changes = {}
+        var changes = {}
 
-      if (!isNaN(xOffset) && xOffset !== Number(tileDescriptions[selectedTile].xOffset)) {
-        changes.xOffset = xOffset
+        if (!isNaN(xOffset) && xOffset !== Number(tileDescriptions[selectedTile].xOffset)) {
+          changes.xOffset = xOffset
+        }
+
+        if (!isNaN(yOffset)) { 
+          changes.yOffset = yOffset
+        }
+
+        socket.emit('editTile', {tile: selectedTile, changes: changes})
+      } else {
+        alert('No tile selected.')
       }
-
-      if (!isNaN(yOffset)) { 
-        changes.yOffset = yOffset
-      }
-
-      socket.emit('editTile', {tile: selectedTile, changes: changes})
     }
 
     function refreshOptions () {
-      var xOffset = Number(tileDescriptions[selectedTile].xOffset) || 0
-      var yOffset = -Number(tileDescriptions[selectedTile].yOffset) || 0
-
-      optionsDialog.select('#xOffset').property('value', xOffset)
-      optionsDialog.select('#yOffset').property('value', -yOffset)
-
-      preview
-        .attr('src', tileDescriptions[selectedTile].url)
-        .style('position', 'absolute')
-        .style('left', xOffset + 'px')
-        .style('top', yOffset + 'px')
+      if (tileDescriptions[selectedTile]) {
+        var xOffset = Number(tileDescriptions[selectedTile].xOffset) || 0
+        var yOffset = -Number(tileDescriptions[selectedTile].yOffset) || 0
+  
+        optionsDialog.select('#xOffset').property('value', xOffset)
+        optionsDialog.select('#yOffset').property('value', -yOffset)
+  
+        preview
+          .attr('src', tileDescriptions[selectedTile].url)
+          .style('position', 'absolute')
+          .style('left', xOffset + 'px')
+          .style('top', yOffset + 'px')
+      } else {
+        preview.attr('src', '')
+      }
     }
 
+    var deleteTile = optionsDialog
+      .append('button')
+      .attr('id', 'deleteTile')
+      .text('Delete tile.')
+      .on('click', confirmDelete)
+
+    function confirmDelete () {
+      if (tileDescriptions[selectedTile]) {
+        confirm('Are you sure you want to remove this tile?')
+        if (confirm) {
+          for (var id in tiles) {
+            if (tiles[id].node().classList.contains('tile-' + selectedTile)) {
+              subtractTile(id, true)
+            }
+          }
+
+          closeOptions()
+          socket.emit('deleteTile', selectedTile)
+        }
+      } else {
+        alert('No tile selected')
+      }
+    }
 
  </script>
 </body>

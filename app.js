@@ -97,6 +97,8 @@ io.on('connection', function (socket) {
       }
     })
   } else {
+    roomTiles[room] = {}
+    roomDescriptions[room] = defaultDescription
     socket.emit('roomTiles', roomTiles[room])
     socket.emit('roomDescription', roomDescriptions[room])
   }
@@ -106,16 +108,16 @@ io.on('connection', function (socket) {
   // Editing a room
   // ----------------------------------------------------------------
   socket.on('addTile', function (data) {
-    if (roomTiles[room] && roomDescription[room][data.id]) {
+    if (roomTiles[room] && roomDescriptions[room][data.type]) {
       socket.to(room).emit('addTile', data)
       roomTiles[room][data.id] = data.type
       roomNeedsWrite[room] = true
     }
   })
 
-  socket.on('removeTile', function (data) {
+  socket.on('subtractTile', function (data) {
     if (roomTiles[room]) {
-      socket.to(room).emit('removeTile', data)
+      socket.to(room).emit('subtractTile', data)
       delete roomTiles[room][data]
       roomNeedsWrite[room] = true
     }
@@ -132,7 +134,7 @@ io.on('connection', function (socket) {
       var json = JSON.stringify(roomDescriptions[room], null, 2)
     
       fs.writeFile('rooms/' + room + '/description.txt', json, function (a) {
-        console.log('Writing description of ', room, a)
+        console.log('Tile description edited. Writing description of ', room, a)
       })
 
       io.to(room).emit('editTile', data)
@@ -171,19 +173,36 @@ io.on('connection', function (socket) {
     
             fs.write(fd, buffer, null, 'Binary', function (err, written, buff) {
               console.log('File ', fullPath + ' written')
+
               fs.close(fd, function () {
                 roomDescriptions[room][hash] = {url: fullPath}
+                io.to(room).emit('newTile', {hash: hash, url: fullPath})
+
                 var json = JSON.stringify(roomDescriptions[room], null, 2)
-    
+
                 fs.writeFile('rooms/' + room + '/description.txt', json, function (a) {
-                  console.log('Writing description of ', room, a)
+                  console.log('Added file. Writing description of ', room, a)
                 })
               })
             })
           })
+        } else {
+          roomDescriptions[room][hash] = {url: fullPath}
+          io.to(room).emit('newTile', {hash: hash, url: fullPath})
         }
+      })
+    }
+  })
 
-        io.to(room).emit('newTile', {hash: hash, url: fullPath})
+  socket.on('deleteTile', function (id) {
+    if (roomDescriptions[room][id]) {
+      delete roomDescriptions[room][id]
+
+      io.to(room).emit('deleteTile', id)
+
+      var json = JSON.stringify(roomDescriptions[room], null, 2)
+      fs.writeFile('rooms/' + room + '/description.txt', json, function (a) {
+        console.log('Deleted tile from room. Writing description of ', room, a)
       })
     }
   })
