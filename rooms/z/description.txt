@@ -2,7 +2,14 @@
   "cobblestone": {
     "url": "cobblestone.png"
   },
-  "lower": {
-    "url": "rooms/z/lower.png"
+  "62334ca0b574861ba79262057dad954bedf21375": {
+    "url": "tiles/62334ca0b574861ba79262057dad954bedf21375.png",
+    "xOffset": -130,
+    "yOffset": 140
+  },
+  "a85f865f8b75fa413ec39571946aaf6d5f3d510c": {
+    "url": "tiles/a85f865f8b75fa413ec39571946aaf6d5f3d510c.gif",
+    "xOffset": -140,
+    "yOffset": 300
   }
 }

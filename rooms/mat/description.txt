@@ -1,0 +1,8 @@
+{
+  "cobblestone": {
+    "url": "cobblestone.png"
+  },
+  "afe9051bb53ff4d7903e008a6f358c5656ea9a42": {
+    "url": "tiles/afe9051bb53ff4d7903e008a6f358c5656ea9a42.gif"
+  }
+}

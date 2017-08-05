@@ -1,0 +1,35 @@
+{
+  "cobblestone": {
+    "url": "cobblestone.png"
+  },
+  "fa3bf5860384d6236257be02927e003ca79e66f1": {
+    "url": "tiles/fa3bf5860384d6236257be02927e003ca79e66f1.png",
+    "xOffset": 0,
+    "yOffset": 0
+  },
+  "159c259fc10e020b9114808abf35ca0a048be4d1": {
+    "url": "tiles/159c259fc10e020b9114808abf35ca0a048be4d1.png"
+  },
+  "33a8d112d7d9e1edd523efae9a0e2934843c9eb5": {
+    "url": "tiles/33a8d112d7d9e1edd523efae9a0e2934843c9eb5.png"
+  },
+  "6f34c2fde0d298afdd2910ba4576b546a567e447": {
+    "url": "tiles/6f34c2fde0d298afdd2910ba4576b546a567e447.png"
+  },
+  "2f965b3612ac4fb135a16875a4a77b77d368ef9c": {
+    "url": "tiles/2f965b3612ac4fb135a16875a4a77b77d368ef9c.png"
+  },
+  "5d7fe0b99a6f4fe1d3ebce7870256d0edf5245f7": {
+    "url": "tiles/5d7fe0b99a6f4fe1d3ebce7870256d0edf5245f7.gif"
+  },
+  "24d6af985700f486fbe180ec5f997e6dee3641c0": {
+    "url": "tiles/24d6af985700f486fbe180ec5f997e6dee3641c0.png",
+    "xOffset": 45,
+    "yOffset": -25
+  },
+  "a85f865f8b75fa413ec39571946aaf6d5f3d510c": {
+    "url": "tiles/a85f865f8b75fa413ec39571946aaf6d5f3d510c.gif",
+    "xOffset": -117,
+    "yOffset": 250
+  }
+}

@@ -1,0 +1,39 @@
+√	Node server
+√	Routing – all routes available universally
+√	Socket.io
+√	Hook up socket.io messages to only be sent to those on the same route
+√	Either local storage or DB storage of tile layout
+
+	    Socket.io
+√	On connect, send the user the current state
+√	On tile placement/remove, broadcast to everybody in the room
+√	On new tile creation, upload the tile file and broadcast the description
+
+
+
+√		Universal tile store
+√		File type protection
+√		File size protection
+√		Both client and server
+√		Tile options menu
+√		deleteTile socket.io call
+√		editTile socket.io call
+
+
+√		Offset
+		Filter
+
+    Upload Background
+    Animations for character
+    Ramp mechanics
+    Invisible Tiles
+    Chat
+	
+
+    Better indication for Lower/Raise elevation
+    Better support for opening/closing world builder
+
+
+http://www.astro.keele.ac.uk/oldusers/rno/Computing/File_magic.html#Image
+http://stackoverflow.com/questions/30183082/convert-binary-to-hex-in-node-js
+

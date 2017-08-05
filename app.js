@@ -41,6 +41,7 @@ var server = http.createServer(function (req, res) {
         }
     })
 }).listen(1337)
+console.log('Listening on port 1337')
 
 var participants = {}
 
@@ -92,13 +93,21 @@ io.on('connection', function (socket) {
       } else {
         fs.mkdir('rooms/' + room, function () {
           roomTiles[room] = {}
+          roomDescriptions[room] = defaultDescription
           socket.emit('roomTiles', roomTiles[room])
+          socket.emit('roomDescription', roomDescriptions[room])
         })
       }
+
     })
   } else {
-    roomTiles[room] = {}
-    roomDescriptions[room] = defaultDescription
+    if (roomTiles[room] === undefined) {
+      roomTiles[room] = {}
+    }
+    if (roomDescriptions[room] === undefined) {
+      roomDescriptions[room] = defaultDescription
+    }
+
     socket.emit('roomTiles', roomTiles[room])
     socket.emit('roomDescription', roomDescriptions[room])
   }

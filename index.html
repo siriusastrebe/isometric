@@ -144,6 +144,7 @@
     var synced = false
 
     socket.on('roomTiles', function (data) { 
+      console.log('roomTiles', data)
       for (var id in data) {
         addQueue(id, data[id])
       }
@@ -185,6 +186,119 @@
       })
       queue = []
     }
+
+
+    // ----------------------------------------------------------------
+    // Create world
+    // ----------------------------------------------------------------
+    var world = d3.select('body')
+      .append('div')
+      .attr('id', 'world') 
+      .style('width', '2000px')
+      .style('height', '2000px')
+
+    // ----------------------------------------------------------------
+    // User Avatars
+    // ----------------------------------------------------------------
+    var avatars = {
+      amazon: {
+        art: {
+          standing: [
+            'amazon-rear.gif',
+            'amazon-rear-right.gif',
+            'amazon-right.gif',
+            'amazon-front-right.gif',
+            'amazon-front.gif',
+            'amazon-front-left.gif',
+            'amazon-left.gif',
+            'amazon-rear-left.gif'
+          ]
+        }
+      }
+    }
+
+    var characters = [{trajectory: [], avatar: 'amazon', action: 'standing', direction: 4, i: 0, j: 16, z: 1}]
+    var activeCharacter = characters[0]
+
+    renderAvatars()
+
+    function renderAvatars () {
+      world.selectAll('.avatar')
+        .data(characters)
+        .enter()
+        .append('img')
+        .attr('class', 'avatar')
+        .attr('src', avatarUrl)
+        .style('position', 'absolute')
+
+      var bodies = world.selectAll('.avatar')
+        .each(function (data) {
+          var sprite = d3.select(this)
+
+          characterAction(data)
+          positionCharacter(sprite, data)
+        })
+
+      setTimeout(renderAvatars, 20)
+
+      function characterAction (data) {
+        var nextTile = data.trajectory[0]
+        var tileAfter = data.trajectory[1]
+        var grid = [data.i, data.j, data.z]
+
+        if (nextTile) {
+          if (tileAfter) {
+            console.log(angleBetweenTiles(tileAfter, grid))
+          }
+
+          if (Math.abs(grid[0] - nextTile[0]) < 0.1 && Math.abs(grid[1] - nextTile[1]) < 0.1) {
+            grid[0] = nextTile[0]
+            grid[1] = nextTile[1]
+            data.trajectory.shift()
+          } else {
+            if (grid[0] > nextTile[0]) {
+              grid[0] -= 0.05
+            } else {
+              grid[0] += 0.05
+            }
+            if (grid[1] > nextTile[1]) {
+              grid[1] -= 0.05
+            } else {
+              grid[1] += 0.05
+            }
+          }
+
+          data.i = grid[0]
+          data.j = grid[1]
+          data.z = grid[2]
+        }
+      }
+
+      function positionCharacter (sprite, data) {
+        var grid = [data.i, data.j, data.z]
+        var px = offset(grid2pixel(grid))
+
+        sprite
+          .style('left', px[0] + 'px')
+          .style('top', px[1] + 'px')
+          .style('z-index', px[2])
+          .style('height', '160px')
+          .style('width', '100px')
+      }
+
+      function avatarUrl (character) {
+        var avatar = character.avatar
+        var direction = character.direction
+        var url = avatars[avatar].art['standing'][direction]
+        return url
+      }
+
+      function offset (px) {
+        px[0] += 15
+        px[1] -= 80
+        return px
+      }
+    }
  
     // ----------------------------------------------------------------
     // Tiler
@@ -200,6 +314,14 @@
         hideInEditor: true
       }
     }
+
+    var drawing = false
+    var erasing = false
+    var elevation = 0
+    var selectedTile = 'cobblestone'
+    var editing = false
+
+    var wireframe = createTile('wireframe')
  
     function createTile (type) {
       var tile = world.append('img')
@@ -209,7 +331,7 @@
       return tile
     }
 
-    function tileID (grid) {
+    function grid2id (grid) {
       return String(grid[0]) + ',' + String(grid[1]) + ',' + String(grid[2])
     }
 
@@ -226,7 +348,7 @@
       var iso = [],
           x = cursor[0],
           y = cursor[1],
-          z = elevation
+          z = cursor[2] || elevation
  
       y += z * 32 - 25
  
@@ -251,6 +373,90 @@
       px[1] -= h * 32
 
       return px 
+    }
+
+    function angleBetweenTiles (reference, destination) {
+      var px1 = grid2pixel(reference)
+      var px2 = grid2pixel(destination)
+
+      return Math.atan2(px2[1] - px1[1], px2[0] - px1[0]) * 180 / Math.PI
+    }
+
+    function closestVisible (cursor) {
+      var highestHeight = -Infinity
+      var highestId
+
+      for (var id in tiles) {
+        var tileLocation = id2grid(id)
+        if (highestHeight < tileLocation[2]) {
+          cursor[2] = tileLocation[2]
+          var clickLocation = pixel2grid(cursor)
+
+          if (tileLocation[0] === clickLocation[0] && tileLocation[1] === clickLocation[1]) {
+            highestHeight = tileLocation[2]
+            highestId = id
+          }
+        }
+      }
+      return highestId
+    }
+
+
+    function findPath (origin, target) {
+      // Breadth first search. Not very optimized.
+      var queue = [{path: [], current: origin}]
+      var seen = {}
+
+      while (queue.length > 0) {
+        var info = queue.shift()
+        var tile = info.current
+        var path = info.path.slice(0)
+
+        path.push(tile)
+
+        if (tile[0] === target[0] && tile[1] === target[1] && tile[2] === target[2]) {
+          path.shift()
+          return path
+        }
+
+        var directions = {
+          upright: [tile[0] + 1, tile[1], tile[2]],
+          dnright: [tile[0], tile[1] + 1, tile[2]],
+          upleft:  [tile[0], tile[1] - 1, tile[2]],
+          dnleft:  [tile[0] - 1, tile[1], tile[2]]
+        }
+
+        var keys = Object.keys(directions)
+        shuffle(keys)
+
+        for (var index in keys) {
+          var grid = directions[keys[index]]
+          var id = grid2id(grid)
+          var above = grid.slice(0)
+          above[2] = grid[2] + 1
+
+          if (tiles[id] && !tiles[above] && seen[id] === undefined) {
+            seen[id] = true
+            queue.push({path: path, current: id2grid(id)})
+          }
+        }
+      }
+      
+      console.log('nothing found')
+
+      /**
+       * Shuffles array in place.
+       * @param {Array} a items The array containing the items.
+       */
+      function shuffle(a) {
+        var j, x, i;
+        for (i = a.length; i; i--) {
+          j = Math.floor(Math.random() * i);
+          x = a[i - 1];
+          a[i - 1] = a[j];
+          a[j] = x;
+        }
+      }
     }
 
     function editDescription (name, changes) {
@@ -283,6 +489,7 @@
       }
       return available
     }
+
 
     // ----------------------------------------------------------------
     // Tile Creation
@@ -362,29 +569,13 @@
     }
 
 
-
-    // ----------------------------------------------------------------
-    // Create world
-    // ----------------------------------------------------------------
-    var world = d3.select('body')
-      .append('div')
-      .attr('id', 'world') 
-      .style('width', '2000px')
-      .style('height', '2000px')
-
-    var drawing = false
-    var erasing = false
-    var elevation = 0
-    var selectedTile = 'cobblestone'
-
-    wireframe = createTile('wireframe')
-
     // ----------------------------------------------------------------
     // Create editor toolbar
     // ----------------------------------------------------------------
     var editor = d3.select('body')
       .append('div')
       .attr('id', 'editor')
+      .attr('class', 'collapsed')
 
     var collapseBar = editor
       .append('div')
@@ -392,8 +583,13 @@
       .on('click', function () {
         if (editor.attr('class') !== 'collapsed') {
           editor.attr('class', 'collapsed')
+          editing = false
+          wireframe.style('display', 'none')
+          d3.selectAll('.guideTile').remove()
         } else {
           editor.attr('class', '')
+          editing = true
+          wireframe.style('display', 'block')
         }
       })
 
@@ -496,69 +692,153 @@
     // Mouse events
     // ----------------------------------------------------------------
     world.on('mousedown', function (a, b) {
-      var cursor = d3.mouse(this)
-      var grid = pixel2grid(cursor)
-      var id = tileID(grid)
+      if (editing) {
+        var cursor = d3.mouse(this)
+        var grid = pixel2grid(cursor)
+        var id = grid2id(grid)
 
-      d3.event.preventDefault();
+        d3.event.preventDefault();
 
-      if (tiles[id]) {
-        drawing = false
-        erasing = true
+        if (tiles[id]) {
+          drawing = false
+          erasing = true
+        } else {
+          drawing = true
+          erasing = false
+        }
+
+        // Trigger redraw
+        mousemove.call(this)
       } else {
-        drawing = true
-        erasing = false
+        var cursor = d3.mouse(this)
+        var current = [Math.round(activeCharacter.i), Math.round(activeCharacter.j), Math.round(activeCharacter.z - 1)]
+        var target = closestVisible(cursor)
+ 
+        if (target) {
+          var grid = id2grid(target)
+          var path = findPath(current, grid)
+          if (path) {
+            activeCharacter.trajectory = path
+//            /* Visualize Path
+            path.forEach(function (d) {
+              var id = grid2id(d)
+              if (tiles[id]) {
+                tiles[d].style('opacity', 0)
+                tiles[d].transition().duration(500).style('opacity', 1)
+              } else {
+                console.log('No tile towards path', id, tiles[id])
+              }
+            })
+//          */
+          }
+        }
       }
-
-      // Trigger redraw
-      mousemove.call(this)
     })
 
     world.on('mouseup', function (a, b) {
-      d3.event.preventDefault();
+      if (editing) {
+        d3.event.preventDefault();
 
-      drawing = false
-      erasing = false
+        drawing = false
+        erasing = false
 
-      // Trigger redraw
-      mousemove.call(this)
+        // Trigger redraw
+        mousemove.call(this)
+      }
     })
  
     world.on('mousemove', mousemove) 
 
+    var guideTiles = []
+
     function mousemove () {
-      var cursor = d3.mouse(this)
-      var grid = pixel2grid(cursor)
-      var px = grid2pixel(grid)
-      var id = tileID(grid)
+      if (editing) {
+        var cursor = d3.mouse(this)
+        var grid = pixel2grid(cursor)
+        var px = grid2pixel(grid)
+        var id = grid2id(grid)
+        wireframe
+          .style('left', px[0] + 'px')
+          .style('top', px[1] + 'px')
+          .style('z-index', px[2] + 1)
 
-      wireframe
-        .style('left', px[0] + 'px')
-        .style('top', px[1] + 'px')
-        .style('z-index', px[2] + 1)
+        if (drawing || (!erasing && !tiles[id])) {
+          var url = tileDescriptions['wireframe'].url
 
-      if (drawing || (!erasing && !tiles[id])) {
-        var url = tileDescriptions['wireframe'].url
+          if (wireframe.attr('src') !== url) {
+            wireframe
+              .attr('src', url)
+          }
+        } else {
+          var url = tileDescriptions['negative'].url
 
-        if (wireframe.attr('src') !== url) {
-          wireframe
-            .attr('src', url)
+          if (wireframe.attr('src') !== url) {
+            wireframe
+              .attr('src', url)
+          }
         }
-      } else {
-        var url = tileDescriptions['negative'].url
 
-        if (wireframe.attr('src') !== url) {
-          wireframe
-            .attr('src', url)
+        if (synced) {
+          if (drawing) {
+            addTile(id, selectedTile, true)
+          } else if (erasing) {
+            subtractTile(id, true)
+          }
         }
-      }
 
-      if (synced) {
-        if (drawing) {
-          addTile(id, selectedTile, true)
-        } else if (erasing) {
-          subtractTile(id, true)
+        // Guide Tiles
+        var newGuideTiles = {}
+        for (var i=-4; i<=4; i++ ) {
+          for (var j=-4; j<=4; j++) {
+            var guideGrid = [grid[0] + i, grid[1] + j, grid[2] - 1]
+            var guidePx = grid2pixel(guideGrid)
+            var guideId = grid2id(guideGrid)
+            newGuideTiles[guideId] = {grid: guideGrid, id: guideId, px: guidePx}
+          }
         }
+
+        // This is kinda bullshit I gotta do the difference operator manually here
+        for (var k=0; k<guideTiles.length; k++) {
+          var tile = guideTiles[k]
+          var id = tile.id
+
+          if (!newGuideTiles.id) {
+            // Remove tiles that are no longer relevant
+            guideTiles.splice(k, 1)
+            k-- 
+          } else {
+            // Exclude already tracked tiles
+            delete newGuideTiles[id]
+          }
+        }
+
+        for (var id in newGuideTiles) {
+          guideTiles.push(newGuideTiles[id])
+        }
+
+        world.selectAll('.guideTile')
+          .data(guideTiles, function (d) { return d.id })
+          .enter()
+          .append('img')
+          .attr('class', 'guideTile')
+          .attr('src', 'tophat.png')
+          .style('position', 'absolute')
+          .style('left', function (d) { return d.px[0] + 'px' })
+          .style('top', function (d) { return d.px[1] + 'px' })
+          .style('z-index', function (d) { return d.px[2] })
+          .style('opacity', 0)
+
+        world.selectAll('.guideTile')
+          .style('opacity', function (d) { 
+            var distance = Math.sqrt(Math.pow(Math.abs(d.grid[0] - grid[0]), 2) + Math.pow(Math.abs(d.grid[1] - grid[1]), 2))
+            var max = 5.65
+            return (max - distance) / max
+          })
+
+        world.selectAll('.guideTile')
+          .data(guideTiles, function (d) { return d.id })
+          .exit()
+          .remove()
       }
     }
 
@@ -586,7 +866,7 @@
     var uploadClose = uploadDialog
       .append('div')
       .attr('id', 'uploadClose')
-      .text('✖')
+      .text('x')
       .on('click', closeUploader)
 
     var uploadInstructions = uploadDialog
@@ -636,6 +916,14 @@
           var buffer = e.target.result
           socket.emit('uploadTile', file.name, buffer)
           closeUploader()
+
+          socket.once('newTile', function (data) {
+            // Wait for the description to get set
+            setTimeout(function () {
+              selectTile(data.hash)
+              openOptions()
+            }, 100)
+          })
         }
 
         reader.readAsBinaryString(file)
@@ -665,7 +953,7 @@
     var optionsClose = optionsDialog
       .append('div')
       .attr('id', 'optionsClose')
-      .text('✖')
+      .text('x')
       .on('click', closeOptions)
 
     var previewScreen = optionsDialog
@@ -743,10 +1031,10 @@
       if (tileDescriptions[selectedTile]) {
         var xOffset = Number(tileDescriptions[selectedTile].xOffset) || 0
         var yOffset = -Number(tileDescriptions[selectedTile].yOffset) || 0
-  
+
         optionsDialog.select('#xOffset').property('value', xOffset)
         optionsDialog.select('#yOffset').property('value', -yOffset)
-  
+
         preview
           .attr('src', tileDescriptions[selectedTile].url)
           .style('position', 'absolute')
