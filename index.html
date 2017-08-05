@@ -757,13 +757,16 @@
         var grid = pixel2grid(cursor)
         var px = grid2pixel(grid)
         var id = grid2id(grid)
-        wireframe
-          .style('left', px[0] + 'px')
-          .style('top', px[1] + 'px')
-          .style('z-index', px[2] + 1)
 
         if (drawing || (!erasing && !tiles[id])) {
-          var url = tileDescriptions['wireframe'].url
+          var url = tileDescriptions[selectedTile].url
+
+          var px = applyOffset(px, selectedTile)
+
+          wireframe
+            .style('left', px[0] + 'px')
+            .style('top', px[1] + 'px')
+            .style('z-index', px[2] + 1)
 
           if (wireframe.attr('src') !== url) {
             wireframe
@@ -771,6 +774,11 @@
           }
         } else {
           var url = tileDescriptions['negative'].url
+
+          wireframe
+            .style('left', px[0] + 'px')
+            .style('top', px[1] + 'px')
+            .style('z-index', px[2] + 1)
 
           if (wireframe.attr('src') !== url) {
             wireframe
