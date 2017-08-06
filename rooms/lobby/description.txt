@@ -1,6 +1,8 @@
 {
   "cobblestone": {
-    "url": "cobblestone.png"
+    "url": "cobblestone.png",
+    "xOffset": 0,
+    "yOffset": 0
   },
   "fa3bf5860384d6236257be02927e003ca79e66f1": {
     "url": "tiles/fa3bf5860384d6236257be02927e003ca79e66f1.png",

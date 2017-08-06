@@ -1077,6 +1077,66 @@
       }
     }
 
+
+    var filters = [
+        {name: 'grayscale', values: 'percentage'},
+        {name: 'sepia', values: 'percentage'},
+        {name: 'saturate', values: 'percentage'},
+        {name: 'hue-rotate', values: 'angle'},
+        {name: 'invert', values: 'percentage'},
+        {name: 'opacity', values: 'percentage'},
+        {name: 'brightness', values: 'percentage'},
+        {name: 'contrast', values: 'percentage'},
+        {name: 'blur', values: 'length'},
+        {name: 'drop-shadow', values: 'drop-shadow'}
+    ]
+
+    var filterString = ''
+
+    for (var i=0; i<filters.length; i++) {
+      var filter = filters[i];
+
+      var filterContainer = optionsDialog
+        .append('div')
+        .attr('class', 'filter')
+
+      var filterName = filterContainer
+        .append('span')
+        .attr('class', 'filterName')
+        .text(filter.name)
+
+      if (filter.values === 'percentage' || filter.values ==='angle') {
+        var filterInput = filterContainer
+          .append('input')
+          .attr('type', 'number')
+          .attr('class', 'filterInput')
+          .attr('i', i)
+          .on('change', function (a, b, c) {
+            var value = c[0].value
+            var filter =  filters[c[0].getAttribute('i')]
+
+            if (value === '') { 
+              delete filter.value
+            } else if (filter.values === 'percentage') {
+              filter.value = value + '%'
+            } else if (filter.values === 'angle') {
+              filter.value = value + 'deg'
+            }
+
+            var filterShorthand = ''
+            for (var j=0; j<filters.length; j++) {
+              var f = filters[j]
+              if (f.value) {
+                filterShorthand += f.name + '(' + f.value + ') '
+              }
+            }
+
+            preview
+              .style('filter', filterShorthand)
+          })
+      }
+    }
+
  </script>
 </body>
 </html>
