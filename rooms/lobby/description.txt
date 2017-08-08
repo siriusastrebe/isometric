@@ -2,7 +2,8 @@
   "cobblestone": {
     "url": "cobblestone.png",
     "xOffset": 0,
-    "yOffset": 0
+    "yOffset": 0,
+    "filter": "hue-rotate(100deg) invert(100%) "
   },
   "fa3bf5860384d6236257be02927e003ca79e66f1": {
     "url": "tiles/fa3bf5860384d6236257be02927e003ca79e66f1.png",
@@ -10,7 +11,10 @@
     "yOffset": 0
   },
   "159c259fc10e020b9114808abf35ca0a048be4d1": {
-    "url": "tiles/159c259fc10e020b9114808abf35ca0a048be4d1.png"
+    "url": "tiles/159c259fc10e020b9114808abf35ca0a048be4d1.png",
+    "xOffset": 0,
+    "yOffset": 0,
+    "filter": "grayscale(100%) "
   },
   "33a8d112d7d9e1edd523efae9a0e2934843c9eb5": {
     "url": "tiles/33a8d112d7d9e1edd523efae9a0e2934843c9eb5.png"
