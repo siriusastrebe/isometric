@@ -1056,6 +1056,16 @@
           var node = input.node()
 
           if (node) node.value = null
+
+          if (filtersList[i].values === 'drop-shadow') {
+            for (var j=0; j<filtersList[i].parameters.length; j++) {
+              var parameterName = filtersList[i].parameters[j]
+              var input = d3.select('.filterInput[parameter="' + parameterName + '"]')
+              var node = input.node()
+
+              if (node) node.value = null
+            }
+          }
         }
 
         if (desc.filter) {
@@ -1071,19 +1081,29 @@
 
               var filterInfo = filtersList[j]
 
-              if (filterInfo.name == filterName) {
+              if (filterInfo && filterInfo.name === filterName) {
                 var filterValue = str.substring(str.indexOf('(') + 1, str.indexOf(')'))
 
-                if (filterInfo.values === 'percentage') {
-                  var num = Number(filterValue.substring(0, filterValue.indexOf('%')))
-                } else if (filterInfo.values === 'angle') {
-                  var num = Number(filterValue.substring(0, filterValue.indexOf('deg')))
-                } else if (filterInfo.values === 'length') {
-                  var num = Number(filterValue.substring(0, filterValue.indexOf('px')))
-                }
+                if (filterInfo.values !== 'drop-shadow') {
+                  if (filterInfo.values === 'percentage') {
+                    var num = Number(filterValue.substring(0, filterValue.indexOf('%')))
+                  } else if (filterInfo.values === 'angle') {
+                    var num = Number(filterValue.substring(0, filterValue.indexOf('deg')))
+                  } else if (filterInfo.values === 'length') {
+                    var num = Number(filterValue.substring(0, filterValue.indexOf('px')))
+                  }
 
-                var input = d3.select('.filterInput[i="' + j + '"]').node()
-                  .value = num
+                  var input = d3.select('.filterInput[i="' + j + '"]').node()
+                    .value = num
+                } else {
+                  console.log(filterValue)
+                  var split = filterValue.split(' ')
+                  console.log(split)
+                  for (var j=0; j<split.length; j++) {
+                    var num = split[j].replace(/\D/g, '')
+                    console.log(num)
+                  }
+                }
               }
             }
           }
@@ -1128,7 +1148,17 @@
         {name: 'brightness', values: 'percentage'},
         {name: 'contrast', values: 'percentage'},
         {name: 'blur', values: 'length'},
-        {name: 'drop-shadow', values: 'drop-shadow'}
+        {name: 'drop-shadow', values: 'drop-shadow', 
+          parameters: [
+            {name: 'x', values: 'length'},
+            {name: 'y', values: 'length'},
+            {name: 'blur', values: 'length'},
+            {name: 'r', values: 'color'},
+            {name: 'g', values: 'color'},
+            {name: 'b', values: 'color'},
+            {name: 'a', values: 'color'}
+          ]
+        }
     ]
 
     var filterShorthand = ''
@@ -1152,12 +1182,20 @@
           .attr('class', 'filterInput')
           .attr('i', i)
           .on('change', filterValueChanged)
+      } else if (filter.values === 'drop-shadow') {
+        for (var j=0; j<filter.parameters.length; j++) {
+          filterContainer
+            .append('input')
+            .attr('type', 'number')
+            .attr('class', 'filterInput')
+            .attr('i', i)
+            .attr('parameter', filter.parameters[j].name)
+            .on('change', filterValueChanged)
+        }
       }
     }
 
     function filterValueChanged (a, b, c) {
-      var filter =  filtersList[c[0].getAttribute('i')]
-
       filterShorthand = ''
 
       for (var i=0; i<filtersList.length; i++) {
@@ -1172,6 +1210,50 @@
             filterShorthand += info.name + '(' + value + 'deg) '
           } else if (info.values === 'length') {
             filterShorthand += info.name + '(' + value + 'px) '
+          } 
+        }
+
+        if (info.values === 'drop-shadow') {
+          var isChanged = false
+          for (var j=0; j<info.parameters.length; j++) {
+            var parameter = info.parameters[j].name
+            input = d3.select('.filterInput[i="' + i + '"][parameter="' + parameter + '"]').node()
+            value = input ? input.value : null
+            if (value) {
+              isChanged = true
+            }
+          }
+
+          if (isChanged) {
+            filterShorthand += 'drop-shadow('
+
+            for (var j=0; j<info.parameters.length; j++) {
+              var parameter = info.parameters[j]
+              input = d3.select('.filterInput[i="' + i + '"][parameter="' + parameter.name + '"]').node()
+              value = input ? input.value : null
+
+              // Start off the color declaration
+              if (parameter.name === 'r') {
+                filterShorthand += 'rgba('
+              }
+
+              if (parameter.values === 'length') {
+                if (value) filterShorthand += value + 'px'
+                else filterShorthand += '0px'
+              } else if (parameter.values === 'color') {
+                if (value && Number(value) <= 255) filterShorthand += value
+                else filterShorthand += (parameter.name === 'a' ?  1 : 0)
+              }
+
+              // Commas, or end the color declaration
+              if (parameter.name === 'a') {
+                filterShorthand += ')) '
+              } else if (parameter.values === 'color') {
+                filterShorthand += ', '
+              } else {
+                filterShorthand += ' '
+              }
+            }
           }
         }
       }
