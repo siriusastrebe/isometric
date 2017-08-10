@@ -1075,6 +1075,13 @@
           .style('top', yOffset + 'px')
           .style('filter', filter)
 
+        // Reset input values
+        d3.selectAll('.filterInput')
+          .each(function () {
+            d3.select(this).node().value = null
+          })
+
+        // Set input values to their saved value
         if (desc.filters) {
           for (var name in filtersList) {
             if (desc.filters.hasOwnProperty(name)) {
@@ -1140,6 +1147,7 @@
           .attr('class', 'filterInput')
           .attr('name', name)
           .on('change', filterValueChanged)
+          .on('keyup', filterValueChanged)
       } else if (name === 'drop-shadow') {
         for (var pName in filterType) {
           filterContainer
@@ -1149,6 +1157,7 @@
             .attr('name', name)
             .attr('parameter', pName)
             .on('change', filterValueChanged)
+            .on('keyup', filterValueChanged)
         }
       }
     }
