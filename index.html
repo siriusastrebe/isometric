@@ -510,9 +510,9 @@
           .attr('j', grid[1])
           .attr('z', grid[2])
 
-        if (tileDescriptions[type].filter) {
+        if (tileDescriptions[type].filters) {
           tile
-            .style('filter', tileDescriptions[type].filter)
+            .style('filter', generateFilterString(tileDescriptions[type].filters))
         }
 
         if (!document.hidden) {
@@ -547,16 +547,21 @@
             tile
               .style('top', px[1] + 'px')
           }
-          if (changed.filter !== undefined) {
-            tile
-              .style('filter', changed.filter)
-          }
+        }
+
+        if (changed.filters !== undefined) {
+          var filterString = generateFilterString(changed.filters)
+          tile
+            .style('filter', filterString)
         }
       })
 
-      if (changed.filter !== undefined) {
+      // Update editor preview
+      if (changed.filters !== undefined) {
+        var filterString = generateFilterString(changed.filters)
+
         d3.select('#editor #img-' + name)
-          .style('filter', changed.filter)
+          .style('filter', filterString)
       }
     }
 
@@ -665,7 +670,7 @@
         .attr('class', 'tile')
         .attr('id', function (a) { return 'img-' + a })
         .attr('src', function (a) { return tileDescriptions[a].url })
-        .style('filter', function (a) { return tileDescriptions[a].filter })
+        .style('filter', function (a) { return generateFilterString(tileDescriptions[a].filters) })
         .on('click', selectTile)
 
      tiles
@@ -775,7 +780,7 @@
 
         if (drawing || (!erasing && !tiles[id])) {
           var url = tileDescriptions[selectedTile].url
-          var filter = tileDescriptions[selectedTile].filter
+          var filter = generateFilterString(tileDescriptions[selectedTile].filters)
 
           var px = applyOffset(px, selectedTile)
 
@@ -1032,11 +1037,33 @@
       .text('Save tile options')
       .on('click', saveOptions)
 
+    var filtersList = {
+        'grayscale': 'percentage',
+        'sepia': 'percentage',
+        'saturate': 'percentage',
+        'hue-rotate': 'angle',
+        'invert': 'percentage',
+        'opacity': 'percentage',
+        'brightness': 'percentage',
+        'contrast': 'percentage',
+        'blur': 'length',
+        'drop-shadow': {
+          'x': 'length',
+          'y': 'length',
+          'blur': 'length',
+          'r': 'color',
+          'g': 'color',
+          'b': 'color',
+          'a': 'alpha'
+        }
+    }
+
     function refreshOptions () {
       var desc = tileDescriptions[selectedTile]
       if (desc) {
         var xOffset = Number(desc.xOffset) || 0
         var yOffset = -Number(desc.yOffset) || 0
+        var filter = generateFilterString(desc.filters)
 
         optionsDialog.select('#xOffset').property('value', xOffset)
         optionsDialog.select('#yOffset').property('value', -yOffset)
@@ -1046,62 +1073,19 @@
           .style('position', 'absolute')
           .style('left', xOffset + 'px')
           .style('top', yOffset + 'px')
-          .style('filter', desc.filter)
+          .style('filter', filter)
 
-
-        // Is this really the best way to extract what filters are applied to the selectedTile?
-        // String manipulation B.S.
-        for (var i=0; i<filtersList.length; i++) {
-          var input = d3.select('.filterInput[i="' + i + '"]')
-          var node = input.node()
-
-          if (node) node.value = null
-
-          if (filtersList[i].values === 'drop-shadow') {
-            for (var j=0; j<filtersList[i].parameters.length; j++) {
-              var parameterName = filtersList[i].parameters[j]
-              var input = d3.select('.filterInput[parameter="' + parameterName + '"]')
-              var node = input.node()
-
-              if (node) node.value = null
-            }
-          }
-        }
-
-        if (desc.filter) {
-          var filters = desc.filter.split(' ')
-          for (var i=0; i<filters.length; i++) {
-            var str = filters[i]
-            var filterName = str.substring(0, str.indexOf('('))
-            if (filterName) {
-
-              for (var j=0; j<filtersList.length; j++) {
-                if (filtersList[j].name === filterName) break
-              }
-
-              var filterInfo = filtersList[j]
-
-              if (filterInfo && filterInfo.name === filterName) {
-                var filterValue = str.substring(str.indexOf('(') + 1, str.indexOf(')'))
-
-                if (filterInfo.values !== 'drop-shadow') {
-                  if (filterInfo.values === 'percentage') {
-                    var num = Number(filterValue.substring(0, filterValue.indexOf('%')))
-                  } else if (filterInfo.values === 'angle') {
-                    var num = Number(filterValue.substring(0, filterValue.indexOf('deg')))
-                  } else if (filterInfo.values === 'length') {
-                    var num = Number(filterValue.substring(0, filterValue.indexOf('px')))
-                  }
-
-                  var input = d3.select('.filterInput[i="' + j + '"]').node()
-                    .value = num
-                } else {
-                  console.log(filterValue)
-                  var split = filterValue.split(' ')
-                  console.log(split)
-                  for (var j=0; j<split.length; j++) {
-                    var num = split[j].replace(/\D/g, '')
-                    console.log(num)
+        if (desc.filters) {
+          for (var name in filtersList) {
+            if (desc.filters.hasOwnProperty(name)) {
+              if (name !== 'drop-shadow') {
+                var node = d3.select('.filterInput[name="' + name + '"]').node()
+                if (node) node.value = desc.filters[name]
+              } else {
+                for (var pName in filtersList['drop-shadow']) {
+                  if (desc.filters['drop-shadow'].hasOwnProperty(pName)) {
+                    var node = d3.select('.filterInput[name="' + name + '"][parameter="' + pName + '"]').node()
+                    if (node) node.value = desc.filters['drop-shadow'][pName]
                   }
                 }
               }
@@ -1137,129 +1121,137 @@
       }
     }
 
-
-    var filtersList = [
-        {name: 'grayscale', values: 'percentage'},
-        {name: 'sepia', values: 'percentage'},
-        {name: 'saturate', values: 'percentage'},
-        {name: 'hue-rotate', values: 'angle'},
-        {name: 'invert', values: 'percentage'},
-        {name: 'opacity', values: 'percentage'},
-        {name: 'brightness', values: 'percentage'},
-        {name: 'contrast', values: 'percentage'},
-        {name: 'blur', values: 'length'},
-        {name: 'drop-shadow', values: 'drop-shadow', 
-          parameters: [
-            {name: 'x', values: 'length'},
-            {name: 'y', values: 'length'},
-            {name: 'blur', values: 'length'},
-            {name: 'r', values: 'color'},
-            {name: 'g', values: 'color'},
-            {name: 'b', values: 'color'},
-            {name: 'a', values: 'color'}
-          ]
-        }
-    ]
-
-    var filterShorthand = ''
-
-    for (var i=0; i<filtersList.length; i++) {
-      var filter = filtersList[i];
+    for (var name in filtersList) {
+      var filterType = filtersList[name]
 
       var filterContainer = optionsDialog
         .append('div')
         .attr('class', 'filter')
 
-      var filterName = filterContainer
+      filterContainer
         .append('span')
         .attr('class', 'filterName')
-        .text(filter.name)
+        .text(name)
 
-      if (filter.values === 'percentage' || filter.values ==='angle' || filter.values === 'length') {
-        var filterInput = filterContainer
+      if (filterType === 'percentage' || filterType ==='angle' || filterType === 'length') {
+        filterContainer
           .append('input')
           .attr('type', 'number')
           .attr('class', 'filterInput')
-          .attr('i', i)
+          .attr('name', name)
           .on('change', filterValueChanged)
-      } else if (filter.values === 'drop-shadow') {
-        for (var j=0; j<filter.parameters.length; j++) {
+      } else if (name === 'drop-shadow') {
+        for (var pName in filterType) {
           filterContainer
             .append('input')
             .attr('type', 'number')
             .attr('class', 'filterInput')
-            .attr('i', i)
-            .attr('parameter', filter.parameters[j].name)
+            .attr('name', name)
+            .attr('parameter', pName)
             .on('change', filterValueChanged)
         }
       }
     }
 
+    var filterObject = {}
+
     function filterValueChanged (a, b, c) {
-      filterShorthand = ''
+      filterObject = {}
 
-      for (var i=0; i<filtersList.length; i++) {
-        var input = d3.select('.filterInput[i="' + i + '"]').node()
-        var value = input ? input.value : null
-        var info = filtersList[i]
+      for (var name in filtersList) {
+        if (name !== 'drop-shadow') {
+          var node = d3.select('.filterInput[name="' + name + '"]').node()
+          var value = node ? node.value : null
 
-        if (value) {
-          if (info.values === 'percentage') {
-            filterShorthand += info.name + '(' + value + '%) '
-          } else if (info.values === 'angle') {
-            filterShorthand += info.name + '(' + value + 'deg) '
-          } else if (info.values === 'length') {
-            filterShorthand += info.name + '(' + value + 'px) '
-          } 
-        }
-
-        if (info.values === 'drop-shadow') {
-          var isChanged = false
-          for (var j=0; j<info.parameters.length; j++) {
-            var parameter = info.parameters[j].name
-            input = d3.select('.filterInput[i="' + i + '"][parameter="' + parameter + '"]').node()
-            value = input ? input.value : null
-            if (value) {
-              isChanged = true
-            }
+          if (value) {
+            filterObject[name] = value
           }
+        } else {
+          var isChanged = false
 
+          for (var pName in filtersList['drop-shadow']) {
+            var node = d3.select('.filterInput[name="' + name + '"][parameter="' + pName + '"]').node()
+            value = node ? node.value : null
+            if (value) isChanged = true 
+          }
+          
           if (isChanged) {
-            filterShorthand += 'drop-shadow('
+            filterObject['drop-shadow'] = {}
 
-            for (var j=0; j<info.parameters.length; j++) {
-              var parameter = info.parameters[j]
-              input = d3.select('.filterInput[i="' + i + '"][parameter="' + parameter.name + '"]').node()
-              value = input ? input.value : null
+            for (var pName in filtersList['drop-shadow']) {
+              var node = d3.select('.filterInput[name="' + name + '"][parameter="' + pName + '"]').node()
+              var valueType = filtersList['drop-shadow'][pName]
+              value = node ? node.value : null
 
-              // Start off the color declaration
-              if (parameter.name === 'r') {
-                filterShorthand += 'rgba('
-              }
-
-              if (parameter.values === 'length') {
-                if (value) filterShorthand += value + 'px'
-                else filterShorthand += '0px'
-              } else if (parameter.values === 'color') {
-                if (value && Number(value) <= 255) filterShorthand += value
-                else filterShorthand += (parameter.name === 'a' ?  1 : 0)
-              }
-
-              // Commas, or end the color declaration
-              if (parameter.name === 'a') {
-                filterShorthand += ')) '
-              } else if (parameter.values === 'color') {
-                filterShorthand += ', '
+              if (value) {
+                filterObject['drop-shadow'][pName] = value
               } else {
-                filterShorthand += ' '
+                if (valueType === 'alpha') {
+                  if (value > 1)
+                    filterObject['drop-shadow'][pName] = value / 100
+                  else if (value >= 0 && value <= 1) {
+                    filterObject['drop-shadow'][pName] = value
+                  } else {
+                    filterObject['drop-shadow'][pName] = 1
+                  }
+                } else {
+                  filterObject['drop-shadow'][pName] = 0
+                }
               }
             }
           }
         }
       }
 
+      var filterString = generateFilterString(filterObject)
+
       preview
-        .style('filter', filterShorthand)
+        .style('filter', filterString)
+    }
+
+    function generateFilterString (filters) {
+      var str = ''
+
+      for (var name in filters) {
+        var value = filters[name]
+        var valueType = filtersList[name]
+
+        str += name
+
+        if (valueType === 'percentage') {
+          str += '(' + value + '%) '
+        } else if (valueType === 'angle') {
+          str += '(' + value + 'deg) '
+        } else if (valueType === 'length') {
+          str += '(' + value + 'px) '
+        } else if (name === 'drop-shadow') {
+
+          var rgba = false
+          str += '('
+          for (var pName in filtersList['drop-shadow']) {
+            var pValue = value[pName]
+            var pValueType = filtersList['drop-shadow'][pName]
+
+            if (pValueType === 'length') {
+              if (pValue) str += pValue + 'px '
+              else str += '0px '
+            } else if (pValueType === 'color') {
+              if (!rgba) { str += 'rgba('; rgba = true }
+
+              if (pValue) str += pValue + ', '
+              else str += '0, '
+            } else if (pValueType === 'alpha') {
+              if (pValue > 1) str += pValue / 100 + ')'
+              else if (pValue) str += pValue + ')'
+              else str += '1)'
+            }
+          }
+
+          str += ') '
+        }
+      }
+
+      return str
     }
 
     function saveOptions () {
@@ -1273,12 +1265,12 @@
           changes.xOffset = xOffset
         }
 
-        if (!isNaN(yOffset)) { 
+        if (!isNaN(yOffset) && yOffset !== Number(tileDescriptions[selectedTile].yOffset)) {
           changes.yOffset = yOffset
         }
 
-        if (filterShorthand !== tileDescriptions[selectedTile].filter) {
-          changes.filter = filterShorthand
+        if (filterObject) {
+          changes.filters = filterObject
         }
 
         socket.emit('editTile', {tile: selectedTile, changes: changes})

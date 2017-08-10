@@ -3,7 +3,19 @@
     "url": "cobblestone.png",
     "xOffset": 0,
     "yOffset": 0,
-    "filter": "hue-rotate(100deg) invert(100%) "
+    "filter": "drop-shadow(5px 9px 0px rgba(0, 100, 0, 1)) ",
+    "filters": {
+      "invert": "100",
+      "drop-shadow": {
+        "x": "-5",
+        "y": "5",
+        "blur": "5",
+        "r": "100",
+        "g": "0",
+        "b": "0",
+        "a": ""
+      }
+    }
   },
   "fa3bf5860384d6236257be02927e003ca79e66f1": {
     "url": "tiles/fa3bf5860384d6236257be02927e003ca79e66f1.png",
@@ -14,7 +26,7 @@
     "url": "tiles/159c259fc10e020b9114808abf35ca0a048be4d1.png",
     "xOffset": 0,
     "yOffset": 0,
-    "filter": "grayscale(100%) "
+    "filter": ""
   },
   "33a8d112d7d9e1edd523efae9a0e2934843c9eb5": {
     "url": "tiles/33a8d112d7d9e1edd523efae9a0e2934843c9eb5.png"
@@ -37,5 +49,8 @@
     "url": "tiles/a85f865f8b75fa413ec39571946aaf6d5f3d510c.gif",
     "xOffset": -117,
     "yOffset": 250
+  },
+  "43edef68adf38b672bdfe081a7d3048e07b5c054": {
+    "url": "tiles/43edef68adf38b672bdfe081a7d3048e07b5c054.png"
   }
 }
