@@ -124,6 +124,7 @@
       console.log('new tile', data)
       tileDescriptions[data.hash] = { url: data.url }
       renderEditorTiles()
+      selectTile(data.hash)
     })
 
     socket.on('editTile', function (data) {
@@ -1128,6 +1129,24 @@
       }
     }
 
+    var duplicateTileButton = optionsDialog
+      .append('button')
+      .attr('id', 'duplicateTileButton')
+      .text('Duplicate Tile')
+      .on('click', duplicateTile)
+
+    function duplicateTile () {
+      if (tileDescriptions[selectedTile]) {
+        socket.emit('duplicateTile', selectedTile)
+      } else {
+        alert('No tile selected')
+      }
+    }
+
+
+    // ------------------------------------------------------------------------------------------------
+    // Filters
+    // ------------------------------------------------------------------------------------------------
     for (var name in filtersList) {
       var filterType = filtersList[name]
 

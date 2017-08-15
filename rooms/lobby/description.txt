@@ -5,15 +5,17 @@
     "yOffset": 0,
     "filter": "drop-shadow(5px 9px 0px rgba(0, 100, 0, 1)) ",
     "filters": {
+      "hue-rotate": "-50",
       "invert": "100",
+      "opacity": "100",
       "drop-shadow": {
-        "x": "-5",
-        "y": "5",
+        "x": "-10",
+        "y": "10",
         "blur": "5",
         "r": "100",
         "g": "0",
         "b": "0",
-        "a": ""
+        "a": "70"
       }
     }
   },
@@ -21,12 +23,6 @@
     "url": "tiles/fa3bf5860384d6236257be02927e003ca79e66f1.png",
     "xOffset": 0,
     "yOffset": 0
-  },
-  "159c259fc10e020b9114808abf35ca0a048be4d1": {
-    "url": "tiles/159c259fc10e020b9114808abf35ca0a048be4d1.png",
-    "xOffset": 0,
-    "yOffset": 0,
-    "filter": ""
   },
   "33a8d112d7d9e1edd523efae9a0e2934843c9eb5": {
     "url": "tiles/33a8d112d7d9e1edd523efae9a0e2934843c9eb5.png"
@@ -43,7 +39,14 @@
   "24d6af985700f486fbe180ec5f997e6dee3641c0": {
     "url": "tiles/24d6af985700f486fbe180ec5f997e6dee3641c0.png",
     "xOffset": 45,
-    "yOffset": -25
+    "yOffset": -25,
+    "filters": {
+      "grayscale": "100",
+      "sepia": "999999",
+      "saturate": "999999",
+      "contrast": "50",
+      "blur": "1"
+    }
   },
   "a85f865f8b75fa413ec39571946aaf6d5f3d510c": {
     "url": "tiles/a85f865f8b75fa413ec39571946aaf6d5f3d510c.gif",
@@ -52,5 +55,33 @@
   },
   "43edef68adf38b672bdfe081a7d3048e07b5c054": {
     "url": "tiles/43edef68adf38b672bdfe081a7d3048e07b5c054.png"
+  },
+  "41c3d754cbec5b7b71a4f664dc9a5c27b909c50a": {
+    "url": "tiles/41c3d754cbec5b7b71a4f664dc9a5c27b909c50a.png"
+  },
+  "6807cafb255a2e34db7423f8e8f28f02090beb24": {
+    "url": "tiles/41c3d754cbec5b7b71a4f664dc9a5c27b909c50a.png",
+    "xOffset": 0,
+    "yOffset": 0,
+    "filters": {
+      "grayscale": "100"
+    }
+  },
+  "c4172ee62c6d9779449826b87dbe017dd999268b": {
+    "url": "tiles/41c3d754cbec5b7b71a4f664dc9a5c27b909c50a.png",
+    "xOffset": 0,
+    "yOffset": 0,
+    "filters": {
+      "hue-rotate": "100",
+      "brightness": "50"
+    }
+  },
+  "523b89943b0b0b3af5db7e128f4278a5b35ac486": {
+    "url": "tiles/41c3d754cbec5b7b71a4f664dc9a5c27b909c50a.png",
+    "xOffset": 0,
+    "yOffset": 0,
+    "filters": {
+      "blur": "4"
+    }
   }
 }

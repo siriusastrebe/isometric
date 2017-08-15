@@ -179,7 +179,7 @@ io.on('connection', function (socket) {
         if (!exists) {
           fs.open(fullPath, 'a', 0755, function(err, fd) {
             if (err) throw err;
-    
+
             fs.write(fd, buffer, null, 'Binary', function (err, written, buff) {
               console.log('File ', fullPath + ' written')
 
@@ -199,6 +199,24 @@ io.on('connection', function (socket) {
           roomDescriptions[room][hash] = {url: fullPath}
           io.to(room).emit('newTile', {hash: hash, url: fullPath})
         }
+      })
+    }
+  })
+
+  socket.on('duplicateTile', function (id) {
+    var original = roomDescriptions[room][id]
+    if (original) {
+      var url = original.url
+
+      var hash = sha1.hash(String(Math.random() + Math.random()))
+
+      roomDescriptions[room][hash] = {url: url}
+
+      io.to(room).emit('newTile', {hash: hash, url: url})
+ 
+      var json = JSON.stringify(roomDescriptions[room], null, 2)
+      fs.writeFile('rooms/' + room + '/description.txt', json, function (a) {
+        console.log('Duplicated tile. Writing description of ', room, a)
       })
     }
   })
