@@ -123,6 +123,11 @@
       addQueue(data.id, data.type) 
     })
 
+    socket.on('newPlayer', function (data) {
+      console.log('new player', data)
+      addCharacter(data.avatar, [data.i, data.j, data.z])
+    })
+
     socket.on('subtractTile', subtractTile)
 
     socket.on('newTile', function (data) {
@@ -200,8 +205,6 @@
     var world = d3.select('body')
       .append('div')
       .attr('id', 'world') 
-      .style('width', '2000px')
-      .style('height', '2000px')
  
     // ----------------------------------------------------------------
     // Tiler
@@ -510,8 +513,15 @@
       }
     }
 
-    var characters = [{trajectory: [], avatar: 'amazon', action: 'standing', direction: 4, i: 0, j: 16, z: 1}]
+    var characters = []
+    addCharacter('amazon', [0, 16, 1])
     var activeCharacter = characters[0]
+
+    function addCharacter(avatar, startingGrid) {
+      // Taken from https://stackoverflow.com/questions/1349404/generate-random-string-characters-in-javascript
+      var id = 's' + Math.random().toString(36).substring(7); 
+      characters.push({avatar: avatar, id: id, i: startingGrid[0], j: startingGrid[1], z: startingGrid[2], trajectory: [], direction: 4})
+    }
 
     renderAvatars()
 
@@ -521,15 +531,26 @@
         .enter()
         .append('img')
         .attr('class', 'avatar')
+        .attr('id', function (d) { return d.id })
         .attr('src', avatarUrl)
+        .style('position', 'absolute')
+
+      world.selectAll('.avatarShadow')
+        .data(characters)
+        .enter()
+        .append('img')
+        .attr('class', 'avatarShadow')
+        .attr('id', function (d) { return d.id })
+        .attr('src', 'shadow-ellipse.png')
         .style('position', 'absolute')
 
       var bodies = world.selectAll('.avatar')
         .each(function (data) {
           var sprite = d3.select(this)
+          var shadow = d3.select('#' + sprite.attr('id') + '.avatarShadow')
 
           characterActions(data)
-          positionCharacter(sprite, data)
+          positionCharacter(sprite, shadow, data)
         })
 
       requestAnimationFrame(renderAvatars)
@@ -539,6 +560,7 @@
         var nextTile = data.trajectory[1]
         var tileAfter = data.trajectory[2]
         var grid = [data.i, data.j, data.z]
+        var direction = data.direction
 
         if (nextTile) {
           // Snap to the nearest target tile
@@ -578,24 +600,43 @@
               grid[1] += speed
             else if (jDelta < 0)
               grid[1] -= speed
+
+            if      (iDelta > 0   && jDelta < 0)   direction = 0
+            else if (iDelta > 0   && jDelta === 0) direction = 1
+            else if (iDelta > 0   && jDelta > 0)   direction = 2
+            else if (iDelta === 0 && jDelta > 0)   direction = 3
+            else if (iDelta < 0   && jDelta > 0)   direction = 4
+            else if (iDelta < 0   && jDelta === 0) direction = 5
+            else if (iDelta < 0   && jDelta < 0)   direction = 6
+            else if (iDelta === 0 && jDelta < 0)   direction = 7
           }
 
           data.i = grid[0]
           data.j = grid[1]
           data.z = grid[2]
+
+          data.direction = direction
         }
       }
 
-      function positionCharacter (sprite, data) {
+      function positionCharacter (sprite, shadow, data) {
         var grid = [data.i, data.j, data.z]
-        var px = offset(grid2pixel(grid))
+        var characterPx = characterOffset(grid2pixel(grid), data.direction)
+        var shadowPx = shadowOffset(grid2pixel(grid), data.direction)
 
         sprite
-          .style('left', px[0] + 'px')
-          .style('top', px[1] + 'px')
-          .style('z-index', px[2] + 1)
+          .style('left', characterPx[0] + 'px')
+          .style('top', characterPx[1] + 'px')
+          .style('z-index', characterPx[2])
           .style('height', '160px')
-          .style('width', '100px')
+          .style('width', '160px')
+          .attr('src', avatarUrl)
+
+        shadow
+          .style('left', shadowPx[0] + 'px')
+          .style('top', shadowPx[1] + 'px')
+          .style('opacity', 0.6)
+          .style('z-index', shadowPx[2])
       }
 
       function radiansBetweenTiles (start, destination) {
@@ -612,9 +653,17 @@
         return url
       }
 
-      function offset (px) {
-        px[0] += 15
-        px[1] -= 80
+      function characterOffset (px, direction) {
+        px[0] -= 15
+        px[1] -= 90 
+        px[2] = Math.ceil(px[2])
+        return px
+      }
+
+      function shadowOffset (px, direction) {
+        px[0] += 33
+        px[1] += 45
+        px[2] = Math.ceil(px[2])
         return px
       }
     }

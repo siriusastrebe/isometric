@@ -113,6 +113,10 @@ io.on('connection', function (socket) {
   }
 
 
+  // Broadcast new user avatar
+  var avatar = {avatar: 'amazon', i: 0, j: 16, z: 1}
+  io.to(room).emit('newPlayer', avatar)
+
   // ----------------------------------------------------------------
   // Editing a room
   // ----------------------------------------------------------------
