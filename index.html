@@ -20,6 +20,8 @@
     #world {
       -webkit-transform: translate3d(0, 0, 0);
       transform: translate3d(0,0,0);
+      min-height: 2000px;
+      min-width: 2000px;
     }
 
     #editor {
@@ -118,14 +120,22 @@
     // ----------------------------------------------------------------
     var socket = io()
 
+    // Character Avatars
     // Adding to the world
-    socket.on('addTile', function (data) {
-      addQueue(data.id, data.type) 
+    socket.on('newCharacters', function (data) {
+      data.forEach(function (character) {
+        console.log('new character', character)
+        addCharacter(character.avatar, [character.i, character.j, character.z])
+      })
     })
 
-    socket.on('newPlayer', function (data) {
-      console.log('new player', data)
-      addCharacter(data.avatar, [data.i, data.j, data.z])
+    socket.on('yourCharacter', function (data) {
+      console.log('your character', data)
+      addCharacter(data.avatar, [data.i, data.j, data.z], true)
+    })
+
+    socket.on('addTile', function (data) {
+      addQueue(data.id, data.type) 
     })
 
     socket.on('subtractTile', subtractTile)
@@ -514,13 +524,14 @@
     }
 
     var characters = []
-    addCharacter('amazon', [0, 16, 1])
-    var activeCharacter = characters[0]
+    var activeCharacter
 
-    function addCharacter(avatar, startingGrid) {
+    function addCharacter(avatar, startingGrid, primary) {
       // Taken from https://stackoverflow.com/questions/1349404/generate-random-string-characters-in-javascript
       var id = 's' + Math.random().toString(36).substring(7); 
-      characters.push({avatar: avatar, id: id, i: startingGrid[0], j: startingGrid[1], z: startingGrid[2], trajectory: [], direction: 4})
+      var character = {avatar: avatar, id: id, i: startingGrid[0], j: startingGrid[1], z: startingGrid[2], trajectory: [], direction: 4}
+      characters.push(character)
+      if (primary) activeCharacter = character
     }
 
     renderAvatars()
@@ -530,27 +541,32 @@
         .data(characters)
         .enter()
         .append('img')
+        .style('position', 'absolute')
         .attr('class', 'avatar')
         .attr('id', function (d) { return d.id })
+        .style('height', '160px')
+        .style('width', '160px')
         .attr('src', avatarUrl)
-        .style('position', 'absolute')
 
       world.selectAll('.avatarShadow')
         .data(characters)
         .enter()
         .append('img')
+        .style('position', 'absolute')
         .attr('class', 'avatarShadow')
         .attr('id', function (d) { return d.id })
+        .style('opacity', 0.6)
         .attr('src', 'shadow-ellipse.png')
-        .style('position', 'absolute')
 
       var bodies = world.selectAll('.avatar')
         .each(function (data) {
           var sprite = d3.select(this)
-          var shadow = d3.select('#' + sprite.attr('id') + '.avatarShadow')
 
-          characterActions(data)
-          positionCharacter(sprite, shadow, data)
+          var changed = characterActions(data)
+          if (changed) {
+            var shadow = d3.select('#' + sprite.attr('id') + '.avatarShadow')
+            positionCharacter(sprite, shadow, data)
+          }
         })
 
       requestAnimationFrame(renderAvatars)
@@ -590,7 +606,7 @@
             var iDelta = targetTile[0] - grid[0]
             var jDelta = targetTile[1] - grid[1]
             // Lower the i and j axis speed if the character is moving in both i and j axis
-            var speed = (iDelta !== 0 && jDelta !== 0) ? 0.05 : 0.07
+            var speed = (iDelta !== 0 && jDelta !== 0) ? 0.08 : 0.1
             if (iDelta > 0)
               grid[0] += speed
             else if (iDelta < 0)
@@ -616,6 +632,8 @@
           data.z = grid[2]
 
           data.direction = direction
+
+          return true
         }
       }
 
@@ -628,14 +646,11 @@
           .style('left', characterPx[0] + 'px')
           .style('top', characterPx[1] + 'px')
           .style('z-index', characterPx[2])
-          .style('height', '160px')
-          .style('width', '160px')
           .attr('src', avatarUrl)
 
         shadow
           .style('left', shadowPx[0] + 'px')
           .style('top', shadowPx[1] + 'px')
-          .style('opacity', 0.6)
           .style('z-index', shadowPx[2])
       }
 

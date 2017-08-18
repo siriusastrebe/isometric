@@ -51,6 +51,8 @@ var roomTiles = {}
 var roomNeedsWrite = {}
 var roomDescriptions = {}
 
+var characters = []
+
 var defaultDescription = {
   cobblestone: {
     url: 'cobblestone.png'
@@ -113,9 +115,14 @@ io.on('connection', function (socket) {
   }
 
 
-  // Broadcast new user avatar
+  // ----------------------------------------------------------------
+  // User Avatars
+  // ----------------------------------------------------------------
   var avatar = {avatar: 'amazon', i: 0, j: 16, z: 1}
-  io.to(room).emit('newPlayer', avatar)
+  socket.broadcast.to(room).emit('newCharacters', [avatar])
+  socket.emit('newCharacters', characters)
+  characters.push(avatar)
+  socket.emit('yourCharacter', avatar)
 
   // ----------------------------------------------------------------
   // Editing a room
