@@ -125,13 +125,22 @@
     socket.on('newCharacters', function (data) {
       data.forEach(function (character) {
         console.log('new character', character)
-        addCharacter(character.avatar, [character.i, character.j, character.z])
+        addCharacter(character.avatar, character.id, [character.i, character.j, character.z])
       })
     })
 
     socket.on('yourCharacter', function (data) {
       console.log('your character', data)
-      addCharacter(data.avatar, [data.i, data.j, data.z], true)
+      addCharacter(data.avatar, data.id, [data.i, data.j, data.z], true)
+    })
+
+    socket.on('moveTo', function (data) {
+      moveCharacterTo(data.id, data.path)
+    })
+
+    socket.on('removeCharacter', function (id) {
+      console.log('remove', id)
+      removeCharacter(id)
     })
 
     socket.on('addTile', function (data) {
@@ -526,12 +535,28 @@
     var characters = []
     var activeCharacter
 
-    function addCharacter(avatar, startingGrid, primary) {
-      // Taken from https://stackoverflow.com/questions/1349404/generate-random-string-characters-in-javascript
-      var id = 's' + Math.random().toString(36).substring(7); 
-      var character = {avatar: avatar, id: id, i: startingGrid[0], j: startingGrid[1], z: startingGrid[2], trajectory: [], direction: 4}
+    function addCharacter(avatar, id, startingGrid, primary) {
+      var character = {avatar: avatar, id: id, i: startingGrid[0], j: startingGrid[1], z: startingGrid[2], trajectory: [], direction: 4, uninitialized: true}
       characters.push(character)
       if (primary) activeCharacter = character
+    }
+
+    function removeCharacter(id) {
+      for (var i=0; i<characters.length; i++) {
+        if (characters[i].id === id) {
+          characters.splice(i, 1)
+          break
+        }
+      }
+    }
+
+    function moveCharacterTo (id, path) {
+      for (var i=0; i<characters.length; i++) {
+        if (characters[i].id === id) {
+          characters[i].trajectory = path
+          break
+        }
+      }
     }
 
     renderAvatars()
@@ -547,6 +572,8 @@
         .style('height', '160px')
         .style('width', '160px')
         .attr('src', avatarUrl)
+        .exit()
+        .remove()
 
       world.selectAll('.avatarShadow')
         .data(characters)
@@ -558,12 +585,24 @@
         .style('opacity', 0.6)
         .attr('src', 'shadow-ellipse.png')
 
+
+      world.selectAll('.avatar')
+        .data(characters)
+        .exit()
+        .remove()
+
+      world.selectAll('.avatarShadow')
+        .data(characters)
+        .exit()
+        .remove()
+
       var bodies = world.selectAll('.avatar')
         .each(function (data) {
-          var sprite = d3.select(this)
-
           var changed = characterActions(data)
-          if (changed) {
+
+          if (changed || data.uninitialized) {
+            if (data.uninitialized) delete data.uninitialized
+            var sprite = d3.select(this)
             var shadow = d3.select('#' + sprite.attr('id') + '.avatarShadow')
             positionCharacter(sprite, shadow, data)
           }
@@ -606,7 +645,7 @@
             var iDelta = targetTile[0] - grid[0]
             var jDelta = targetTile[1] - grid[1]
             // Lower the i and j axis speed if the character is moving in both i and j axis
-            var speed = (iDelta !== 0 && jDelta !== 0) ? 0.08 : 0.1
+            var speed = (iDelta !== 0 && jDelta !== 0) ? 0.07 : 0.09
             if (iDelta > 0)
               grid[0] += speed
             else if (iDelta < 0)
@@ -713,9 +752,6 @@
       .attr('src', 'lower.png')
       .on('click', function () {
         elevation -= 1
-
-//        d3.selectAll('img.terrain')
-//          .each(paintTerrain)
       })
 
     var higherElevationButton = editor
@@ -725,31 +761,8 @@
       .on('click', function () {
         elevation += 1
 
-//        d3.selectAll('img.terrain')
-//          .each(paintTerrain)
-
         console.log(elevation)
       })
-
-/*
-    function paintTerrain () {
-      var z = Number(this.getAttribute('z'))
-      if (z < elevation) {
-        d3.select(this)
-          .style('opacity', 0.4)
-          .style('filter', '')
-
-      } else if (z === elevation) {
-        d3.select(this)
-          .style('opacity', 1)
-          .style('filter', '')
-      } else {
-        d3.select(this)
-          .style('opacity', 0.8)
-          .style('filter', 'brightness(20%)')
-      }
-    }
-*/
 
     var editorTiles = editor
       .append('div')
@@ -846,6 +859,9 @@
               }
             })
 //          */
+
+console.log(path)
+            socket.emit('moveTo', path)
           }
         }
       }

@@ -118,11 +118,16 @@ io.on('connection', function (socket) {
   // ----------------------------------------------------------------
   // User Avatars
   // ----------------------------------------------------------------
-  var avatar = {avatar: 'amazon', i: 0, j: 16, z: 1}
+  var avatar = {avatar: 'amazon', i: 0, j: 16, z: 1, id: randomShortId()}
   socket.broadcast.to(room).emit('newCharacters', [avatar])
   socket.emit('newCharacters', characters)
   characters.push(avatar)
   socket.emit('yourCharacter', avatar)
+
+  socket.on('moveTo', function (data) {
+    // TODO: Verify valid path
+    socket.broadcast.to(room).emit('moveTo', {path: data, id: avatar.id})
+  })
 
   // ----------------------------------------------------------------
   // Editing a room
@@ -244,6 +249,18 @@ io.on('connection', function (socket) {
       })
     }
   })
+
+  socket.on('disconnect', function () {
+    console.log('Client disconnected from room ' + room);;
+    io.to(room).emit('removeCharacter', avatar.id)
+
+    for (var i=0; i<characters.length; i++) {
+      if (characters[i].id === avatar.id) {
+        characters.splice(i, 1)
+        break
+      }
+    }
+  });
 })
 
 // ----------------------------------------------------------------
@@ -259,3 +276,14 @@ setInterval(function () {
     delete roomNeedsWrite[room]
   }
 }, 6000)
+
+// ----------------------------------------------------------------
+// Helper Functions
+// ----------------------------------------------------------------
+// Taken from https://stackoverflow.com/questions/1349404/generate-random-string-characters-in-javascript
+function randomShortId() {
+  return 's' + Math.random().toString(36).substring(2);
+}
+
+
+
