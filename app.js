@@ -51,7 +51,7 @@ var roomTiles = {}
 var roomNeedsWrite = {}
 var roomDescriptions = {}
 
-var characters = []
+var characters = {}
 
 var defaultDescription = {
   cobblestone: {
@@ -118,13 +118,26 @@ io.on('connection', function (socket) {
   // ----------------------------------------------------------------
   // User Avatars
   // ----------------------------------------------------------------
+  if (!characters[room]) {
+    characters[room] = [] 
+  }
+
   var avatar = {avatar: 'amazon', i: 0, j: 16, z: 1, id: randomShortId()}
+
   socket.broadcast.to(room).emit('newCharacters', [avatar])
-  socket.emit('newCharacters', characters)
-  characters.push(avatar)
+  if (characters[room].length > 0) {
+    socket.emit('newCharacters', characters[room])
+  }
+
+  characters[room].push(avatar)
   socket.emit('yourCharacter', avatar)
 
   socket.on('moveTo', function (data) {
+    var destination = data[data.length - 1]
+    avatar.i = destination[0]
+    avatar.j = destination[1]
+    avatar.z = destination[2]
+
     // TODO: Verify valid path
     socket.broadcast.to(room).emit('moveTo', {path: data, id: avatar.id})
   })
@@ -254,10 +267,12 @@ io.on('connection', function (socket) {
     console.log('Client disconnected from room ' + room);;
     io.to(room).emit('removeCharacter', avatar.id)
 
-    for (var i=0; i<characters.length; i++) {
-      if (characters[i].id === avatar.id) {
-        characters.splice(i, 1)
-        break
+    if (characters[room]) {
+      for (var i=0; i<characters[room].length; i++) {
+        if (characters[room][i].id === avatar.id) {
+          characters[room].splice(i, 1)
+          break
+        }
       }
     }
   });

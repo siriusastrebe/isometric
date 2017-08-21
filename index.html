@@ -125,13 +125,13 @@
     socket.on('newCharacters', function (data) {
       data.forEach(function (character) {
         console.log('new character', character)
-        addCharacter(character.avatar, character.id, [character.i, character.j, character.z])
+        addCharacter(character)
       })
     })
 
     socket.on('yourCharacter', function (data) {
       console.log('your character', data)
-      addCharacter(data.avatar, data.id, [data.i, data.j, data.z], true)
+      addCharacter(data, true)
     })
 
     socket.on('moveTo', function (data) {
@@ -535,8 +535,15 @@
     var characters = []
     var activeCharacter
 
-    function addCharacter(avatar, id, startingGrid, primary) {
-      var character = {avatar: avatar, id: id, i: startingGrid[0], j: startingGrid[1], z: startingGrid[2], trajectory: [], direction: 4, uninitialized: true}
+    function addCharacter(data, primary) {
+      var avatar = data.avatar
+      var id = data.id
+      var i = data.i || 0
+      var j = data.j || 16
+      var z = data.z || 1
+      var direction = data.direction || Math.floor(Math.random() * 8)
+
+      var character = {avatar: avatar, id: id, i: i, j: j, z: z, trajectory: [], direction: direction, uninitialized: true}
       characters.push(character)
       if (primary) activeCharacter = character
     }
@@ -563,7 +570,7 @@
 
     function renderAvatars () {
       world.selectAll('.avatar')
-        .data(characters)
+        .data(characters, function (c) { return c.id })
         .enter()
         .append('img')
         .style('position', 'absolute')
@@ -576,7 +583,7 @@
         .remove()
 
       world.selectAll('.avatarShadow')
-        .data(characters)
+        .data(characters, function (c) { return c.id })
         .enter()
         .append('img')
         .style('position', 'absolute')
@@ -587,12 +594,12 @@
 
 
       world.selectAll('.avatar')
-        .data(characters)
+        .data(characters, function (c) { return c.id })
         .exit()
         .remove()
 
       world.selectAll('.avatarShadow')
-        .data(characters)
+        .data(characters, function (c) { return c.id })
         .exit()
         .remove()
 
@@ -860,7 +867,6 @@
             })
 //          */
 
-console.log(path)
             socket.emit('moveTo', path)
           }
         }
