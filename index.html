@@ -1205,7 +1205,7 @@
 
         // Update ramp options
         var rampCheckBox = optionsDialog.select('#isRamp')
-        if (desc.ramp) {
+        if (desc.ramp !== undefined) {
           rampCheckBox.node().checked = true
         } else {
           rampCheckBox.node().checked = false
@@ -1540,8 +1540,8 @@
         }
 
         var ramp = rampDirectionSelected()
-        if (direction) {
-          changes.ramp = direction.id
+        if (ramp) {
+          changes.ramp = ramp.id
         }
 
         socket.emit('editTile', {tile: selectedTile, changes: changes})
