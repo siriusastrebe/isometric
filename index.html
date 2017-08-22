@@ -237,6 +237,22 @@
       negative: {
         url: 'negative.png',
         hideInEditor: true
+      },
+      'wireframe-ramp-down-left': { 
+        url: 'wireframe-down-left-ramp.png',
+        hideInEditor: true
+      },
+      'wireframe-ramp-down-right': { 
+        url: 'wireframe-down-right-ramp.png',
+        hideInEditor: true
+      },
+      'wireframe-ramp-up-left': { 
+        url: 'wireframe-up-left-ramp.png',
+        hideInEditor: true
+      },
+      'wireframe-ramp-up-right': { 
+        url: 'wireframe-up-right-ramp.png',
+        hideInEditor: true
       }
     }
 
@@ -1187,6 +1203,28 @@
         optionsDialog.select('#xOffset').property('value', xOffset)
         optionsDialog.select('#yOffset').property('value', -yOffset)
 
+        // Update ramp options
+        var rampCheckBox = optionsDialog.select('#isRamp')
+        if (desc.ramp) {
+          rampCheckBox.node().checked = true
+        } else {
+          rampCheckBox.node().checked = false
+        }
+
+        optionsDialog.selectAll('.rampRadio')
+          .nodes()
+          .forEach(function (d) {
+            if (Number(desc.ramp) === Number(d.id)) {
+              d.checked = true
+            } else {
+              d.checked = false
+            }
+          })
+
+        isRamp()
+        rampDirectionSelected()
+
+        // Update Preview
         preview
           .attr('src', desc.url)
           .style('position', 'absolute')
@@ -1195,7 +1233,7 @@
           .style('filter', filter)
 
         // Reset input values
-        d3.selectAll('.filterInput')
+        optionsDialog.selectAll('.filterInput')
           .each(function () {
             d3.select(this).node().value = null
           })
@@ -1261,11 +1299,84 @@
       }
     }
 
+    var isRampText = optionsDialog
+      .append('span')
+      .text('Ramp')
+
+    var isRampCheckbox = optionsDialog
+      .append('input')
+      .attr('type', 'checkbox')
+      .attr('id', 'isRamp')
+      .on('click', isRamp)
+
+    var rampDirections = [
+      {id: 0, 'name': 'Down Left', tile: 'wireframe-ramp-down-left'},
+      {id: 1, 'name': 'Down Right', tile: 'wireframe-ramp-down-right'},
+      {id: 2, 'name': 'Up Left', tile: 'wireframe-ramp-up-left'},
+      {id: 3, 'name': 'Up Right', tile: 'wireframe-ramp-up-right'}
+    ]
+
+    for (var i=0; i<rampDirections.length; i++) {
+      var direction = rampDirections[i]
+
+      optionsDialog.append('span')
+        .text(direction.name)
+
+      optionsDialog.append('input')
+        .attr('type', 'radio')
+        .attr('name', 'rampDirection')
+        .attr('class', 'rampRadio')
+        .attr('id', direction.id)
+        .attr('disabled', 'disabled')
+        .on('change', rampDirectionSelected)
+    }
+
+    function isRamp () {
+      var checked = isRampCheckbox.node().checked
+
+      if (checked) {
+        optionsDialog.selectAll('.rampRadio')
+          .nodes()
+          .forEach(function (node) { 
+            node.disabled = false
+          })
+      } else {
+        optionsDialog.selectAll('.rampRadio')
+          .nodes()
+          .forEach(function (node) {
+            node.checked = false
+            node.disabled = true
+          })
+      }
+
+      rampDirectionSelected()
+    }
+
+    function rampDirectionSelected () {
+      var direction
+
+      d3.selectAll('.rampRadio')
+        .nodes()
+        .forEach(function (d) {
+          if (d.checked) {
+            direction = rampDirections[d.id]
+          }
+        })
+
+      if (direction) { 
+        reference
+          .attr('src', tileDescriptions[direction.tile].url)
+      } else {
+        reference
+          .attr('src', tileDescriptions['wireframe'].url)
+      }
+
+      return direction
+    }
 
     // ------------------------------------------------------------------------------------------------
     // Filters
     // ------------------------------------------------------------------------------------------------
-
     var filterKnobs = optionsDialog
       .append('div')
       .attr('id', 'filterKnobs')
@@ -1426,6 +1537,11 @@
 
         if (filterObject) {
           changes.filters = filterObject
+        }
+
+        var ramp = rampDirectionSelected()
+        if (direction) {
+          changes.ramp = direction.id
         }
 
         socket.emit('editTile', {tile: selectedTile, changes: changes})
