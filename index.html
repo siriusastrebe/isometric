@@ -267,6 +267,7 @@
     function createTile (type) {
       var tile = world.append('img')
         .attr('src', tileDescriptions[type].url)
+        .attr('type', type)
         .style('position', 'absolute')
 
       return tile
@@ -279,7 +280,7 @@
     function id2grid (id) {
       return id.split(',').map(function (loc) { return Number(loc) })
     }
-    
+
     function tile2grid (tile) {
       var tile = tile
       return [Number(tile.attr('i')), Number(tile.attr('j')), Number(tile.attr('z'))]
@@ -292,11 +293,11 @@
           z = cursor[2]
  
       y += z * 32 - 25
- 
+
       iso[0] = Math.floor(x / 128 - y / 64)
       iso[1] = Math.floor(x / 128 + y / 64)
       iso[2] = z
-  
+
       return iso
     }
  
@@ -343,32 +344,65 @@
 
       while (queue.length > 0) {
         var info = queue.shift()
-        var tile = info.current
+        var grid = info.current
         var path = info.path.slice(0)
 
-        path.push(tile)
+        path.push(grid)
 
-        if (tile[0] === target[0] && tile[1] === target[1] && tile[2] === target[2]) {
+        // We've found the target
+        if (grid[0] === target[0] && grid[1] === target[1] && grid[2] === target[2]) {
           return path
         }
 
         var directions = {
-          upright: [tile[0] + 1, tile[1], tile[2]],
-          dnright: [tile[0], tile[1] + 1, tile[2]],
-          upleft:  [tile[0], tile[1] - 1, tile[2]],
-          dnleft:  [tile[0] - 1, tile[1], tile[2]]
+          upright: [grid[0] + 1, grid[1], grid[2]],
+          dnright: [grid[0], grid[1] + 1, grid[2]],
+          upleft:  [grid[0], grid[1] - 1, grid[2]],
+          dnleft:  [grid[0] - 1, grid[1], grid[2]]
+        }
+
+        // var rampDirections = [
+        //   {id: 0, 'name': 'Down Left', tile: 'wireframe-ramp-down-left'},
+        //   {id: 1, 'name': 'Down Right', tile: 'wireframe-ramp-down-right'},
+        //   {id: 2, 'name': 'Up Left', tile: 'wireframe-ramp-up-left'},
+        //   {id: 3, 'name': 'Up Right', tile: 'wireframe-ramp-up-right'}
+        // ]
+
+        var tile = tiles[grid]
+        var type = tile.attr('type')
+        var description = tileDescriptions[type]
+        var ramp = description.ramp
+        if (ramp !== undefined) {
+          if (ramp === 0) {
+            directions.dnleft  = [grid[0] - 1, grid[1], grid[2] - 1]
+          } else if (ramp === 1) {
+            directions.dnright = [grid[0], grid[1] + 1, grid[2] - 1]
+          } else if (ramp === 2) {
+            directions.upleft  = [grid[0], grid[1] - 1, grid[2] - 1]
+          } else if (ramp === 3) {
+            directions.upright = [grid[0] + 1, grid[1], grid[2] - 1]
+          }
         }
 
         // Shuffle these keys to make character movement look more organic
         var keys = Object.keys(directions)
         shuffle(keys)
 
+        var fromGrid = grid
         for (var index in keys) {
           var grid = directions[keys[index]]
           var id = grid2id(grid)
-          if (isClear(grid) && seen[id] === undefined) {
-            seen[id] = true
-            queue.push({path: path, current: id2grid(id)})
+          if (seen[id] === undefined) {
+            if (isClear(grid)) {
+              seen[id] = true
+              queue.push({path: path, current: id2grid(id)})
+            } else if (hasRampAbove(fromGrid, grid)) {
+              seen[id] = true
+              rampGrid = grid
+              rampGrid[2] = rampGrid[2] + 1
+              var rampId = grid2id(rampGrid)
+              queue.push({path: path, current: id2grid(rampId)})
+            }
           }
         }
       }
@@ -390,12 +424,34 @@
       }
     }
 
-    function isClear(grid) {
+    function isClear(grid, fromGrid) {
       var id = grid2id(grid)
       var above = grid.slice(0)
       above[2] = grid[2] + 1
 
       return (tiles[id] && !tiles[above])
+    }
+
+    function hasRampAbove(fromGrid, toGrid) {
+      var above = toGrid.slice(0)
+      above[2] = toGrid[2] + 1
+
+      var rampTile = tiles[above]
+
+      if (rampTile) {
+        var tile = tiles[above]
+        var type = tile.attr('type')
+        var description = tileDescriptions[type]
+        var ramp = description.ramp
+        if (ramp !== undefined) {
+          if (ramp === 0 && fromGrid[0] + 1 === toGrid[0] ||
+              ramp === 1 && fromGrid[1] - 1 === toGrid[1] ||
+              ramp === 2 && fromGrid[1] + 1 === toGrid[1] ||
+              ramp === 3 && fromGrid[0] - 1 === toGrid[0]) {
+            return true
+          }
+        }
+      }
     }
 
     function editDescription (name, changes) {
@@ -668,7 +724,8 @@
             var iDelta = targetTile[0] - grid[0]
             var jDelta = targetTile[1] - grid[1]
             // Lower the i and j axis speed if the character is moving in both i and j axis
-            var speed = (iDelta !== 0 && jDelta !== 0) ? 0.07 : 0.09
+//            var speed = (iDelta !== 0 && jDelta !== 0) ? 0.07 : 0.09
+            var speed = (iDelta !== 0 && jDelta !== 0) ? 0.03 : 0.04
             if (iDelta > 0)
               grid[0] += speed
             else if (iDelta < 0)
@@ -678,6 +735,11 @@
               grid[1] += speed
             else if (jDelta < 0)
               grid[1] -= speed
+
+            // Handle ramp logic
+            if (targetTile[2] !== grid[2]) {
+              grid[2] = nextTile[2] + 1
+            }
 
             if      (iDelta > 0   && jDelta < 0)   direction = 0
             else if (iDelta > 0   && jDelta === 0) direction = 1
@@ -692,6 +754,7 @@
           data.i = grid[0]
           data.j = grid[1]
           data.z = grid[2]
+console.log(data.z)
 
           data.direction = direction
 
@@ -863,8 +926,13 @@
         mousemove.call(this)
       } else {
         var cursor = d3.mouse(this)
-        var current = [Math.round(activeCharacter.i), Math.round(activeCharacter.j), Math.round(activeCharacter.z - 1)]
-        var target = closestVisible(cursor)
+        var current = [Math.round(activeCharacter.i), Math.round(activeCharacter.j), Math.round(activeCharacter.z) - 1]
+
+        if (!isClear(current))
+          current[2] = current[2] - 1
+        if (isClear(current))
+          var target = closestVisible(cursor)
+       
  
         if (target) {
           var grid = id2grid(target)
